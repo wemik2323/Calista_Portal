@@ -16,7 +16,7 @@ jobs:
           host: ${{ secrets.CALISTA_HOST }}
           username: calista-deploy
           key: ${{ secrets.CALISTA_DEPLOY_KEY }}
-          port: 32228
+          port: ${{ secrets.CALISTA_SSH_PORT }}
           script: |
             whoami
             pwd
