@@ -114,13 +114,13 @@
             <div class="radio-group">
 
                 <label>
-                    <input type="radio" name="scaling" value="auto" checked>
-                    Вписать в страницу
+                    <input type="radio" name="scaling" value="fill" checked>
+                    Заполнить страницу
                 </label>
 
                 <label>
-                    <input type="radio" name="scaling" value="fill">
-                    Заполнить страницу
+                    <input type="radio" name="scaling" value="auto">
+                    Вписать в страницу
                 </label>
 
             </div>
@@ -155,9 +155,11 @@
 
 {% block scripts %}
 
-<script src="{{ url_for('print_service.static', filename='file_preview.js') }}"></script>
+<script type="module">
 
-<script>
+    import {
+        FilePreview
+    } from "{{ url_for('print_service.static', filename='file_preview.js') }}";
 
     const fileInput =
         document.getElementById("file-input");
@@ -179,9 +181,6 @@
 
     const selectedFileElement =
         document.getElementById("selected-file");
-
-    const previewPage =
-        document.getElementById("preview-page");
 
     const preview =
         new FilePreview({
