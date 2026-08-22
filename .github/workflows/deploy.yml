@@ -13,7 +13,7 @@ jobs:
       - name: Test SSH connection
         uses: appleboy/ssh-action@v1.2.2
         with:
-          host: ${{ CALISTA_HOST }}
+          host: ${{ secrets.CALISTA_HOST }}
           username: calista-deploy
           key: ${{ secrets.CALISTA_DEPLOY_KEY }}
           port: 32228
