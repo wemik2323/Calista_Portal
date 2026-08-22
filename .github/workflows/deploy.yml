@@ -1,0 +1,21 @@
+name: CD
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-connection:
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Test SSH connection
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: 79.99.49.34
+          username: calista-deploy
+          key: ${{ secrets.CALISTA_DEPLOY_KEY }}
+          script: |
+            whoami
+            pwd
