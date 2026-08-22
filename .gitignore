@@ -1,0 +1,30 @@
+# Байт-код и кэш Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Виртуальные окружения
+venv/
+ENV/
+env/
+.venv/
+
+# Инструменты тестирования и линтеры
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+coverage.xml
+.coverage
+
+# Среда разработки и IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Локальные файлы настроек и секреты
+.env
+*.log

@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+
+{% block title %}
+Мониторинг
+{% endblock %}
+
+{% block header %}
+Мониторинг
+{% endblock %}
+
+{% block extra_css %}
+
+<link
+    rel="stylesheet"
+    href="{{ url_for('monitoring_service.static', filename='style.css') }}"
+>
+
+{% endblock %}
+
+
+{% block content %}
+
+<div class="metrics-grid">
+
+    <div class="metric-card">
+        <div class="metric-label">
+            Процессор
+        </div>
+
+        <div
+            id="cpu-value"
+            class="metric-value"
+        >
+            —
+        </div>
+    </div>
+
+
+    <div class="metric-card">
+        <div class="metric-label">
+            Память
+        </div>
+
+        <div
+            id="memory-value"
+            class="metric-value"
+        >
+            —
+        </div>
+    </div>
+
+
+    <div class="metric-card">
+        <div class="metric-label">
+            Диск
+        </div>
+
+        <div
+            id="disk-value"
+            class="metric-value"
+        >
+            —
+        </div>
+    </div>
+
+
+    <div class="metric-card">
+        <div class="metric-label">
+            Время работы
+        </div>
+
+        <div
+            id="uptime-value"
+            class="metric-value uptime"
+        >
+            —
+        </div>
+    </div>
+
+</div>
+
+{% endblock %}
+
+
+{% block scripts %}
+
+<script>
+
+async function updateStats() {
+    try {
+        const response = await fetch(
+            "{{ url_for('monitoring_service.get_stats') }}"
+        );
+
+        if (!response.ok) {
+            throw new Error(
+                `HTTP ${response.status}`
+            );
+        }
+
+        const data = await response.json();
+
+        document.getElementById("cpu-value").textContent =
+            `${data.cpu.toFixed(1)}%`;
+
+        document.getElementById("memory-value").textContent =
+            `${data.memory.toFixed(1)}%`;
+
+        document.getElementById("disk-value").textContent =
+            `${data.disk.toFixed(1)}%`;
+
+        document.getElementById("uptime-value").textContent =
+            `${data.uptime.days}д `
+            + `${data.uptime.hours}ч `
+            + `${data.uptime.minutes}м `
+	    + `${data.uptime.seconds}с`;
+
+    } catch (error) {
+        console.error(
+            "Ошибка получения статистики:",
+            error
+        );
+    }
+}
+
+
+updateStats();
+
+setInterval(updateStats, 1000);
+
+</script>
+
+{% endblock %}
