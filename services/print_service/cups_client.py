@@ -1,5 +1,9 @@
 import cups
-from typing import List, Dict, Optional
+
+
+class CUPSClientError(RuntimeError):
+    """Ошибка взаимодействия с CUPS."""
+
 
 class CUPSClient:
     
@@ -12,11 +16,11 @@ class CUPSClient:
         try:
             self.conn = cups.Connection()
 
-        except Exception as e:
+        except Exception as e: # noqa: BLE001
             print(f"Ошибка подключения к CUPS: {e}")
             self.conn = None
     
-    def get_printers(self) -> List[Dict]:
+    def get_printers(self) -> list[dict]:
  
         if not self.conn:
             return []
@@ -44,7 +48,7 @@ class CUPSClient:
             return result
 
 
-        except Exception as e:
+        except Exception as e: # noqa: BLE001
             print(f"Ошибка получения принтеров: {e}")
             return []
 
@@ -57,11 +61,10 @@ class CUPSClient:
             paper_size: str = "A4",
             orientation: str = "portrait",
             scaling: str = "auto",
-    ) -> Optional[int]:
+    ) -> int | None:
  
         if not self.conn:
-            raise Exception("Нет подключения к CUPS")
-        
+            raise CUPSClientError("Нет подключения к CUPS") 
         try:
             printers = self.conn.getPrinters()
             if printer_name not in printers:
@@ -90,11 +93,12 @@ class CUPSClient:
             )
             
         except cups.IPPError as e:
-            raise Exception(f"Ошибка CUPS: {str(e)}")
-    
+            raise CUPSClientError(
+                    f"Ошибка CUPS: {e!s}"
+            ) from e 
 
 
-    def get_job_status(self, job_id: int) -> Dict:
+    def get_job_status(self, job_id: int) -> dict:
      
         if not self.conn:
             return {'status': 'unknown'}
@@ -128,5 +132,5 @@ class CUPSClient:
                 ),
             }
 
-        except Exception as e:
+        except Exception as e: # noqa: BLE001
             return {'status': 'error', 'message': str(e)}

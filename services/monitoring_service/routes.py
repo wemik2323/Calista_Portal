@@ -1,8 +1,7 @@
-from datetime import datetime
+import time
 
 import psutil
 from flask import Blueprint, jsonify, render_template
-
 
 monitoring_bp = Blueprint(
     'monitoring_service',
@@ -30,7 +29,7 @@ def get_stats():
 
 
 def get_uptime():
-    uptime_seconds = datetime.now().timestamp() - psutil.boot_time()
+    uptime_seconds = time.time() - psutil.boot_time()
 
     days = int(uptime_seconds // 86400)
     hours = int((uptime_seconds % 86400) // 3600)

@@ -9,9 +9,7 @@ from flask import (
 )
 from werkzeug.utils import secure_filename
 
-from .cups_client import CUPSClient
-
-
+from .cups_client import CUPSClient, CUPSClientError
 
 print_bp = Blueprint(
     'print_service',
@@ -203,9 +201,13 @@ def print_document():
             }
         )
             
-    except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)}), 500
-
+    except CUPSClientError as e:
+        return jsonify(
+            {
+                "status": "error",
+                "message": str(e),
+            }
+        ), 500
 
 @print_bp.route('/api/job/<int:job_id>')
 def get_job_status(job_id):

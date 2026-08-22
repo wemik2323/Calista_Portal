@@ -1,8 +1,7 @@
 from flask import Flask, render_template
 
-from services.print_service import init_service as init_print_service
 from services.monitoring_service import init_service as init_monitoring_service
-
+from services.print_service import init_service as init_print_service
 
 app = Flask(__name__)
 

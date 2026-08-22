@@ -1,4 +1,5 @@
-from flask import Blueprint, render_template
+from flask import Blueprint
+
 
 class ServiceBase:
     def __init__(self, name, url_prefix, template_folder='templates'):
@@ -14,7 +15,6 @@ class ServiceBase:
     
     def register_routes(self):
         """Переопределяется в дочерних классах"""
-        pass
     
     def get_info(self):
         """Возвращает информацию о сервисе для отображения в меню"""
