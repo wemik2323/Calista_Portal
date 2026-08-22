@@ -30,3 +30,14 @@ jobs:
           port: ${{ secrets.CALISTA_SSH_PORT }}
           source: "."
           target: "/opt/calista/portal"
+
+
+      - name: Install dependencies and restart
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.CALISTA_HOST }}
+          username: calista-deploy
+          key: ${{ secrets.CALISTA_DEPLOY_KEY }}
+          port: ${{ secrets.CALISTA_SSH_PORT }}
+          script: |
+            sudo /usr/local/sbin/calista-deploy
