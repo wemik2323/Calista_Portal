@@ -13,10 +13,7 @@
 
 {% block extra_css %}
 
-<link
-    rel="stylesheet"
-    href="{{ url_for('print_service.static', filename='style.css') }}"
->
+<link rel="stylesheet" href="{{ url_for('print_service.static', filename='style.css') }}">
 
 {% endblock %}
 
@@ -35,12 +32,12 @@
             </option>
 
             {% for printer in printers %}
-                <option value="{{ printer.name }}">
-                    {{ printer.name }}
-                    {% if printer.model %}
-                        ({{ printer.model }})
-                    {% endif %}
-                </option>
+            <option value="{{ printer.name }}">
+                {{ printer.name }}
+                {% if printer.model %}
+                ({{ printer.model }})
+                {% endif %}
+            </option>
             {% endfor %}
         </select>
 
@@ -51,32 +48,17 @@
 
         <h3>Документ</h3>
 
-        <div
-            class="upload-zone"
-            id="upload-zone"
-        >
-            <input
-                type="file"
-                id="file-input"
-                accept=".pdf,.txt,.jpg,.jpeg,.png,.gif"
-                hidden
-            >
+        <div class="upload-zone" id="upload-zone">
+            <input type="file" id="file-input" accept=".pdf,.txt,.jpg,.jpeg,.png,.gif,.svg" hidden>
 
             <p>Перетащите файл сюда или</p>
 
-            <button
-                type="button"
-                class="upload-btn"
-                id="upload-btn"
-            >
+            <button type="button" class="upload-btn" id="upload-btn">
                 Выберите файл
             </button>
         </div>
 
-        <div
-            id="selected-file"
-            class="selected-file"
-        ></div>
+        <div id="selected-file" class="selected-file"></div>
 
     </div>
 
@@ -91,10 +73,7 @@
                 Бумага
             </label>
 
-            <select
-                id="paper-size"
-                class="modern-select"
-            >
+            <select id="paper-size" class="modern-select">
                 <option value="A4" selected>
                     A4
                 </option>
@@ -112,21 +91,12 @@
             <div class="radio-group">
 
                 <label>
-                    <input
-                        type="radio"
-                        name="orientation"
-                        value="portrait"
-                        checked
-                    >
+                    <input type="radio" name="orientation" value="portrait" checked>
                     Книжная
                 </label>
 
                 <label>
-                    <input
-                        type="radio"
-                        name="orientation"
-                        value="landscape"
-                    >
+                    <input type="radio" name="orientation" value="landscape">
                     Альбомная
                 </label>
 
@@ -144,21 +114,12 @@
             <div class="radio-group">
 
                 <label>
-                    <input
-                        type="radio"
-                        name="scaling"
-                        value="auto"
-                        checked
-                    >
+                    <input type="radio" name="scaling" value="auto" checked>
                     Вписать в страницу
                 </label>
 
                 <label>
-                    <input
-                        type="radio"
-                        name="scaling"
-                        value="fill"
-                    >
+                    <input type="radio" name="scaling" value="fill">
                     Заполнить страницу
                 </label>
 
@@ -173,41 +134,19 @@
 
         <h3>Предпросмотр</h3>
 
-        <div
-            id="preview-page"
-            class="preview-page portrait"
-        >
-            <div
-                id="preview-empty"
-                class="preview-empty"
-            >
-                Выберите изображение
-            </div>
-
-            <img
-                id="preview-image"
-                class="preview-image hidden"
-                alt="Предпросмотр"
-            >
+        <div id="preview-page" class="preview-page portrait auto">
+            Выберите файл
         </div>
 
     </div>
 
 
-    <button
-        type="button"
-        id="print-btn"
-        class="print-btn"
-        disabled
-    >
+    <button type="button" id="print-btn" class="print-btn" disabled>
         Отправить на печать
     </button>
 
 
-    <div
-        id="status-message"
-        class="status-message"
-    ></div>
+    <div id="status-message" class="status-message"></div>
 
 </div>
 
@@ -216,275 +155,133 @@
 
 {% block scripts %}
 
+<script src="{{ url_for('print_service.static', filename='file_preview.js') }}"></script>
+
 <script>
 
-const fileInput =
-    document.getElementById("file-input");
+    const fileInput =
+        document.getElementById("file-input");
 
-const uploadBtn =
-    document.getElementById("upload-btn");
+    const uploadBtn =
+        document.getElementById("upload-btn");
 
-const uploadZone =
-    document.getElementById("upload-zone");
+    const uploadZone =
+        document.getElementById("upload-zone");
 
-const printerSelect =
-    document.getElementById("printer-select");
+    const printerSelect =
+        document.getElementById("printer-select");
 
-const printBtn =
-    document.getElementById("print-btn");
+    const printBtn =
+        document.getElementById("print-btn");
 
-const statusMessage =
-    document.getElementById("status-message");
+    const statusMessage =
+        document.getElementById("status-message");
 
-const selectedFileElement =
-    document.getElementById("selected-file");
+    const selectedFileElement =
+        document.getElementById("selected-file");
 
-const previewPage =
-    document.getElementById("preview-page");
+    const previewPage =
+        document.getElementById("preview-page");
 
-const previewImage =
-    document.getElementById("preview-image");
+    const preview =
+        new FilePreview({
+            container:
+                document.getElementById(
+                    "preview-page"
+                ),
+        });
 
-const previewEmpty =
-    document.getElementById("preview-empty");
-
-
-let selectedFile = null;
-
-
-uploadBtn.addEventListener(
-    "click",
-    () => fileInput.click()
-);
+    let selectedFile = null;
 
 
-fileInput.addEventListener(
-    "change",
-    () => {
+    uploadBtn.addEventListener(
+        "click",
+        () => fileInput.click()
+    );
 
-        if (!fileInput.files.length) {
+
+    fileInput.addEventListener(
+        "change",
+        () => {
+
+            if (!fileInput.files.length) {
+                return;
+            }
+
+            selectFile(
+                fileInput.files[0]
+            );
+        }
+    );
+
+
+    uploadZone.addEventListener(
+        "dragover",
+        (event) => {
+
+            event.preventDefault();
+
+            uploadZone.classList.add(
+                "dragover"
+            );
+        }
+    );
+
+
+    uploadZone.addEventListener(
+        "dragleave",
+        () => {
+
+            uploadZone.classList.remove(
+                "dragover"
+            );
+        }
+    );
+
+
+    uploadZone.addEventListener(
+        "drop",
+        (event) => {
+
+            event.preventDefault();
+
+            uploadZone.classList.remove(
+                "dragover"
+            );
+
+            const file =
+                event.dataTransfer.files[0];
+
+            if (file) {
+                selectFile(file);
+            }
+        }
+    );
+
+
+    function selectFile(file) {
+
+        selectedFile = file;
+
+        selectedFileElement.textContent =
+            `Выбран файл: ${file.name}`;
+
+        updatePreview();
+
+        updatePrintButton();
+    }
+
+
+    function updatePreview() {
+
+        if (!selectedFile) {
             return;
         }
-
-        selectFile(
-            fileInput.files[0]
-        );
-    }
-);
-
-
-uploadZone.addEventListener(
-    "dragover",
-    (event) => {
-
-        event.preventDefault();
-
-        uploadZone.classList.add(
-            "dragover"
-        );
-    }
-);
-
-
-uploadZone.addEventListener(
-    "dragleave",
-    () => {
-
-        uploadZone.classList.remove(
-            "dragover"
-        );
-    }
-);
-
-
-uploadZone.addEventListener(
-    "drop",
-    (event) => {
-
-        event.preventDefault();
-
-        uploadZone.classList.remove(
-            "dragover"
-        );
-
-        const file =
-            event.dataTransfer.files[0];
-
-        if (file) {
-            selectFile(file);
-        }
-    }
-);
-
-
-function selectFile(file) {
-
-    selectedFile = file;
-
-    selectedFileElement.textContent =
-        `Выбран файл: ${file.name}`;
-
-    updatePreview();
-
-    updatePrintButton();
-}
-
-
-function updatePreview() {
-
-    if (!selectedFile) {
-
-        previewImage.classList.add(
-            "hidden"
-        );
-
-        previewEmpty.classList.remove(
-            "hidden"
-        );
-
-        return;
-    }
-
-
-    if (
-        !selectedFile.type.startsWith(
-            "image/"
-        )
-    ) {
-
-        previewImage.classList.add(
-            "hidden"
-        );
-
-        previewEmpty.textContent =
-            "Для этого формата предпросмотр пока недоступен.";
-
-        previewEmpty.classList.remove(
-            "hidden"
-        );
-
-        return;
-    }
-
-
-    const reader =
-        new FileReader();
-
-
-    reader.onload = (event) => {
-
-        previewImage.src =
-            event.target.result;
-
-        previewImage.classList.remove(
-            "hidden"
-        );
-
-        previewEmpty.classList.add(
-            "hidden"
-        );
-    };
-
-
-    reader.readAsDataURL(
-        selectedFile
-    );
-}
-
-
-document
-    .querySelectorAll(
-        'input[name="orientation"]'
-    )
-    .forEach((radio) => {
-
-        radio.addEventListener(
-            "change",
-            updatePreviewLayout
-        );
-    });
-
-
-document
-    .querySelectorAll(
-        'input[name="scaling"]'
-    )
-    .forEach((radio) => {
-
-        radio.addEventListener(
-            "change",
-            updatePreviewLayout
-        );
-    });
-
-
-function updatePreviewLayout() {
-
-    const orientation =
-        document.querySelector(
-            'input[name="orientation"]:checked'
-        ).value;
-
-    const scaling =
-        document.querySelector(
-            'input[name="scaling"]:checked'
-        ).value;
-
-
-    previewPage.classList.toggle(
-        "portrait",
-        orientation === "portrait"
-    );
-
-    previewPage.classList.toggle(
-        "landscape",
-        orientation === "landscape"
-    );
-
-
-    previewImage.classList.toggle(
-        "fill",
-        scaling === "fill"
-    );
-
-    previewImage.classList.toggle(
-        "fit",
-        scaling === "auto"
-    );
-}
-
-
-printerSelect.addEventListener(
-    "change",
-    updatePrintButton
-);
-
-
-function updatePrintButton() {
-
-    printBtn.disabled =
-        !selectedFile ||
-        !printerSelect.value;
-}
-
-
-printBtn.addEventListener(
-    "click",
-    async () => {
-
-        if (
-            !selectedFile ||
-            !printerSelect.value
-        ) {
-            return;
-        }
-
 
         const orientation =
             document.querySelector(
                 'input[name="orientation"]:checked'
             ).value;
-
 
         const scaling =
             document.querySelector(
@@ -492,91 +289,165 @@ printBtn.addEventListener(
             ).value;
 
 
-        const paperSize =
-            document.getElementById(
-                "paper-size"
-            ).value;
-
-
-        const formData =
-            new FormData();
-
-
-        formData.append(
-            "file",
-            selectedFile
+        preview.show(
+            selectedFile,
+            {
+                orientation,
+                scaling,
+            }
         );
-
-        formData.append(
-            "printer",
-            printerSelect.value
-        );
-
-        formData.append(
-            "paper_size",
-            paperSize
-        );
-
-        formData.append(
-            "orientation",
-            orientation
-        );
-
-        formData.append(
-            "scaling",
-            scaling
-        );
+    }
 
 
-        printBtn.disabled = true;
+    document
+        .querySelectorAll(
+            'input[name="orientation"]'
+        )
+        .forEach((radio) => {
 
-        statusMessage.textContent =
-            "Отправка...";
-
-
-        try {
-
-            const response =
-                await fetch(
-                    "{{ url_for('print_service.print_document') }}",
-                    {
-                        method: "POST",
-                        body: formData,
-                    }
-                );
+            radio.addEventListener(
+                "change",
+                updatePreview
+            );
+        });
 
 
-            const data =
-                await response.json();
+    document
+        .querySelectorAll(
+            'input[name="scaling"]'
+        )
+        .forEach((radio) => {
+
+            radio.addEventListener(
+                "change",
+                updatePreview
+            );
+        });
 
 
-            if (!response.ok) {
+    printerSelect.addEventListener(
+        "change",
+        updatePrintButton
+    );
 
-                throw new Error(
-                    data.message ||
-                    "Ошибка печати."
-                );
+
+    function updatePrintButton() {
+
+        printBtn.disabled =
+            !selectedFile ||
+            !printerSelect.value;
+    }
+
+
+    printBtn.addEventListener(
+        "click",
+        async () => {
+
+            if (
+                !selectedFile ||
+                !printerSelect.value
+            ) {
+                return;
             }
 
 
+            const orientation =
+                document.querySelector(
+                    'input[name="orientation"]:checked'
+                ).value;
+
+
+            const scaling =
+                document.querySelector(
+                    'input[name="scaling"]:checked'
+                ).value;
+
+
+            const paperSize =
+                document.getElementById(
+                    "paper-size"
+                ).value;
+
+
+            const formData =
+                new FormData();
+
+
+            formData.append(
+                "file",
+                selectedFile
+            );
+
+            formData.append(
+                "printer",
+                printerSelect.value
+            );
+
+            formData.append(
+                "paper_size",
+                paperSize
+            );
+
+            formData.append(
+                "orientation",
+                orientation
+            );
+
+            formData.append(
+                "scaling",
+                scaling
+            );
+
+
+            printBtn.disabled = true;
+
             statusMessage.textContent =
-                `✅ ${data.message}`;
+                "Отправка...";
 
 
-        } catch (error) {
+            try {
 
-            statusMessage.textContent =
-                `❌ ${error.message}`;
+                const response =
+                    await fetch(
+                        "{{ url_for('print_service.print_document') }}",
+                        {
+                            method: "POST",
+                            body: formData,
+                        }
+                    );
 
-        } finally {
 
-            updatePrintButton();
+                const data =
+                    await response.json();
+
+
+                if (!response.ok) {
+
+                    throw new Error(
+                        data.message ||
+                        "Ошибка печати."
+                    );
+                }
+
+
+                statusMessage.textContent =
+                    `✅ ${data.message}`;
+
+
+            } catch (error) {
+
+                statusMessage.textContent =
+                    `❌ ${error.message}`;
+
+            } finally {
+
+                updatePrintButton();
+            }
         }
-    }
-);
+    );
 
 
-updatePreviewLayout();
+    updatePreview();
 
 </script>
 
