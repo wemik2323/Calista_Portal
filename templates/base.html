@@ -1,82 +1,175 @@
 <!DOCTYPE html>
 <html lang="ru">
+
 <head>
     <meta charset="UTF-8">
 
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <title>
         {% block title %}Сервер{% endblock %}
     </title>
 
-    <link
-        rel="stylesheet"
-        href="{{ url_for('static', filename='style.css') }}"
-    >
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 
     {% block extra_css %}{% endblock %}
 </head>
 
+
 <body>
 
-<aside class="sidebar">
-    <div class="sidebar-header">
-        Сервер
-    </div>
+    <div id="sidebar-overlay" class="sidebar-overlay"></div>
 
-    <ul class="sidebar-menu">
 
-        {% for service in services %}
+    <aside id="sidebar" class="sidebar">
+
+        <div class="sidebar-header">
+
+            <span>
+                Сервер
+            </span>
+
+            <button type="button" id="sidebar-close" class="sidebar-close" aria-label="Закрыть меню">
+                x
+            </button>
+
+        </div>
+
+
+        <ul class="sidebar-menu">
+
+            {% for service in services %}
 
             <li>
 
                 {% if service.available and service.endpoint %}
 
-                    <a
-                        href="{{ url_for(service.endpoint) }}"
-                        class="{% if request.endpoint == service.endpoint %}active{% endif %}"
-                    >
-                        {{ service.name }}
-                    </a>
+                <a href="{{ url_for(service.endpoint) }}"
+                    class="{% if request.endpoint == service.endpoint %}active{% endif %}">
+                    {{ service.name }}
+                </a>
 
                 {% else %}
 
-                    <a
-                        href="#"
-                        class="disabled"
-                        onclick="return false;"
-                    >
-                        {{ service.name }}
-                    </a>
+                <a href="#" class="disabled" onclick="return false;">
+                    {{ service.name }}
+                </a>
 
                 {% endif %}
 
             </li>
 
-        {% endfor %}
+            {% endfor %}
 
-    </ul>
-</aside>
+        </ul>
+
+    </aside>
 
 
-<main class="main">
+    <main class="main">
 
-    <header class="main-header">
-        {% block header %}
-            {{ current_service_name or "Сервер" }}
-        {% endblock %}
-    </header>
+        <header class="main-header">
 
-    <section class="main-content">
-        {% block content %}{% endblock %}
-    </section>
+            <button type="button" id="sidebar-open" class="sidebar-open" aria-label="Открыть меню">
+                ☰
+            </button>
 
-</main>
 
-{% block scripts %}{% endblock %}
+            <div class="main-header-title">
+
+                {% block header %}
+                {{ current_service_name or "Сервер" }}
+                {% endblock %}
+
+            </div>
+
+        </header>
+
+
+        <section class="main-content">
+
+            {% block content %}{% endblock %}
+
+        </section>
+
+    </main>
+
+
+    {% block scripts %}{% endblock %}
+
+
+    <script>
+        const sidebar =
+            document.getElementById("sidebar");
+
+        const sidebarOpen =
+            document.getElementById("sidebar-open");
+
+        const sidebarClose =
+            document.getElementById("sidebar-close");
+
+        const sidebarOverlay =
+            document.getElementById("sidebar-overlay");
+
+
+        function openSidebar() {
+            sidebar.classList.add("open");
+            sidebarOverlay.classList.add("visible");
+            document.body.classList.add("menu-open");
+        }
+
+
+        function closeSidebar() {
+            sidebar.classList.remove("open");
+            sidebarOverlay.classList.remove("visible");
+            document.body.classList.remove("menu-open");
+        }
+
+
+        sidebarOpen.addEventListener(
+            "click",
+            openSidebar
+        );
+
+
+        sidebarClose.addEventListener(
+            "click",
+            closeSidebar
+        );
+
+
+        sidebarOverlay.addEventListener(
+            "click",
+            closeSidebar
+        );
+
+
+        document
+            .querySelectorAll(".sidebar-menu a")
+            .forEach((link) => {
+
+                if (!link.classList.contains("disabled")) {
+
+                    link.addEventListener(
+                        "click",
+                        closeSidebar
+                    );
+                }
+            });
+
+
+        window.addEventListener(
+            "resize",
+            () => {
+
+                if (window.innerWidth > 768) {
+                    closeSidebar();
+                }
+
+            }
+        );
+    </script>
 
 </body>
+
 </html>
