@@ -1,22 +1,32 @@
 name: CD
 
 on:
-  workflow_dispatch:
+  workflow_run:
+    workflows:
+      - CI
+    types:
+      - completed
 
 jobs:
-  test-connection:
+
+  deploy:
+
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
 
     runs-on: ubuntu-latest
 
     steps:
 
-      - name: Test SSH connection
-        uses: appleboy/ssh-action@v1.2.2
+      - name: Checkout
+        uses: actions/checkout@v4
+
+
+      - name: Deploy Calista
+        uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.CALISTA_HOST }}
           username: calista-deploy
           key: ${{ secrets.CALISTA_DEPLOY_KEY }}
           port: ${{ secrets.CALISTA_SSH_PORT }}
-          script: |
-            whoami
-            pwd
+          source: "."
+          target: "/opt/calista/portal"
