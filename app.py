@@ -1,7 +1,8 @@
-from flask import Flask, render_template
 import importlib
 import pkgutil
 from pathlib import Path
+
+from flask import Flask, render_template
 
 from services.base import BaseService
 

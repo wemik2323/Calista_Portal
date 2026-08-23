@@ -1,9 +1,11 @@
-from flask import render_template, request, jsonify
-from werkzeug.utils import secure_filename
 import os
 import tempfile
 
+from flask import jsonify, render_template, request
+from werkzeug.utils import secure_filename
+
 from services.base import BaseService
+
 from .cups_client import CUPSClient, CUPSClientError
 
 

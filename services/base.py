@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+
 from flask import Blueprint
 
 
@@ -21,7 +22,6 @@ class BaseService(ABC):
     @abstractmethod
     def register_routes(self):
         """Каждый сервис обязан зарегистрировать свои роуты здесь."""
-        pass
 
     def get_info(self) -> dict:
         return {

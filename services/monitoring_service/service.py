@@ -1,6 +1,7 @@
 import time
+
 import psutil
-from flask import render_template, jsonify
+from flask import jsonify, render_template
 
 from services.base import BaseService
 
