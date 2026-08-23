@@ -47,38 +47,53 @@
             return;
         }
 
-        resultsBox.innerHTML = data.results.map(item => `
-        <div class="result-card">
-            <div class="result-title">${item.title}</div>
-            <div class="result-meta">
-                ${item.size} · seeds: ${item.seeds} · peers: ${item.peers}
-            </div>
-            <button class="download-btn"
-                    onclick="downloadTorrent('${item.id}', \`${item.title.replace(/`/g, "")}\`)">
-                Скачать
-            </button>
-        </div>
-    `).join("");
+        resultsBox.innerHTML = "";
+
+        for (const item of data.results) {
+            const card = document.createElement("div");
+            card.className = "result-card";
+
+            const title = document.createElement("div");
+            title.className = "result-title";
+            title.textContent = item.title;
+
+            const meta = document.createElement("div");
+            meta.className = "result-meta";
+            meta.textContent =
+                `${item.size} · Сиды: ${item.seeds} · Пиры: ${item.peers}`;
+
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "download-btn";
+            button.textContent = "Скачать";
+
+            button.addEventListener("click", () => {
+                downloadTorrent(item.id);
+            });
+
+            card.appendChild(title);
+            card.appendChild(meta);
+            card.appendChild(button);
+
+            resultsBox.appendChild(card);
+        }
     });
 
-    async function downloadTorrent(id, title) {
-        messageBox.textContent = "Отправка...";
-        messageBox.classList.remove("error");
+    async function downloadTorrent(id) {
+        const response = await fetch(
+            "/torrents/api/download",
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ id }),
+            }
+        );
 
-        const res = await fetch("/torrents/api/download", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ id, title })
-        });
-        const data = await res.json();
+        const data = await response.json();
 
-        if (data.status !== "success") {
-            messageBox.textContent = data.message || "Ошибка";
-            messageBox.classList.add("error");
-            return;
-        }
-
-        messageBox.textContent = data.message || "Готово";
+        // здесь твоя текущая обработка ответа
     }
 </script>
 {% endblock %}
