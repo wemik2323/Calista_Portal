@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block title %}Торренты{% endblock %}
+
+{% block header %}Торренты{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('torrent_service.static', filename='style.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="torrent-wrap">
+    <form id="search-form" class="search-form">
+        <input id="search-input" class="search-input" type="text" placeholder="Поиск на Rutracker...">
+        <button type="submit" class="search-btn">Найти</button>
+    </form>
+
+    <div id="results"></div>
+    <div id="message" class="message"></div>
+</div>
+
+<script>
+    const form = document.getElementById("search-form");
+    const input = document.getElementById("search-input");
+    const resultsBox = document.getElementById("results");
+    const messageBox = document.getElementById("message");
+
+    form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const q = input.value.trim();
+        if (!q) return;
+
+        resultsBox.innerHTML = "Поиск...";
+        messageBox.textContent = "";
+        messageBox.classList.remove("error");
+
+        const res = await fetch(`/torrents/api/search?q=${encodeURIComponent(q)}`);
+        const data = await res.json();
+
+        if (data.status !== "success") {
+            resultsBox.innerHTML = data.message || "Ошибка";
+            return;
+        }
+
+        if (!data.results.length) {
+            resultsBox.innerHTML = "Ничего не найдено";
+            return;
+        }
+
+        resultsBox.innerHTML = data.results.map(item => `
+        <div class="result-card">
+            <div class="result-title">${item.title}</div>
+            <div class="result-meta">
+                ${item.size} · seeds: ${item.seeds} · peers: ${item.peers}
+            </div>
+            <button class="download-btn"
+                    onclick="downloadTorrent('${item.id}', \`${item.title.replace(/`/g, "")}\`)">
+                Скачать
+            </button>
+        </div>
+    `).join("");
+    });
+
+    async function downloadTorrent(id, title) {
+        messageBox.textContent = "Отправка...";
+        messageBox.classList.remove("error");
+
+        const res = await fetch("/torrents/api/download", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id, title })
+        });
+        const data = await res.json();
+
+        if (data.status !== "success") {
+            messageBox.textContent = data.message || "Ошибка";
+            messageBox.classList.add("error");
+            return;
+        }
+
+        messageBox.textContent = data.message || "Готово";
+    }
+</script>
+{% endblock %}
