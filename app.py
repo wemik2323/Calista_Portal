@@ -7,7 +7,7 @@ from flask import Flask, render_template
 from services.base import BaseService
 
 app = Flask(__name__)
-app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024  # 50 МБ
+app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024  # 50 MB
 
 
 def load_services(app):
