@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from pathlib import Path
 
 from flask import Blueprint
 
@@ -10,12 +11,16 @@ class BaseService(ABC):
     order: int = 100
 
     def __init__(self):
+        service_package = self.__module__.split(".")[1]
+        root_path = Path(__file__).resolve().parent / service_package
+
         self.blueprint = Blueprint(
             self.__class__.__name__,
-            __name__,
+            self.__module__,
             url_prefix=self.url_prefix,
             template_folder="templates",
             static_folder="static",
+            root_path=str(root_path),
         )
         self.register_routes()
 
