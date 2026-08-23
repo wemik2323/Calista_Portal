@@ -15,7 +15,7 @@ class BaseService(ABC):
         root_path = Path(__file__).resolve().parent / service_package
 
         self.blueprint = Blueprint(
-            self.__class__.__name__,
+            self.__module__.split(".")[1],
             self.__module__,
             url_prefix=self.url_prefix,
             template_folder="templates",
