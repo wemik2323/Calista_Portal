@@ -1,5 +1,3 @@
-from .routes import print_bp
+from .service import PrintService
 
-
-def init_service(app):
-    app.register_blueprint(print_bp)
+__all__ = ["PrintService"]

@@ -1,5 +1,3 @@
-from .routes import monitoring_bp
+from .service import MonitoringService
 
-
-def init_service(app):
-    app.register_blueprint(monitoring_bp)
+__all__ = ["MonitoringService"]

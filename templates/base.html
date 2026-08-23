@@ -39,26 +39,16 @@
         <ul class="sidebar-menu">
 
             {% for service in services %}
-
             <li>
-
                 {% if service.available and service.endpoint %}
-
                 <a href="{{ url_for(service.endpoint) }}"
-                    class="{% if request.endpoint == service.endpoint %}active{% endif %}">
+                    class="{% if request.endpoint and request.endpoint.startswith(service.endpoint.split('.')[0]) %}active{% endif %}">
                     {{ service.name }}
                 </a>
-
                 {% else %}
-
-                <a href="#" class="disabled" onclick="return false;">
-                    {{ service.name }}
-                </a>
-
+                <a href="#" class="disabled">{{ service.name }}</a>
                 {% endif %}
-
             </li>
-
             {% endfor %}
 
         </ul>

@@ -1,25 +1,36 @@
+from abc import ABC, abstractmethod
 from flask import Blueprint
 
 
-class ServiceBase:
-    def __init__(self, name, url_prefix, template_folder='templates'):
-        self.name = name
-        self.url_prefix = url_prefix
+class BaseService(ABC):
+    name: str = "Unnamed Service"
+    url_prefix: str = "/"
+    available: bool = True
+    order: int = 100
+
+    def __init__(self):
         self.blueprint = Blueprint(
-            name,
+            self.__class__.__name__,
             __name__,
-            url_prefix=url_prefix,
-            template_folder=template_folder
+            url_prefix=self.url_prefix,
+            template_folder="templates",
+            static_folder="static",
         )
         self.register_routes()
-    
+
+    @abstractmethod
     def register_routes(self):
-        """Переопределяется в дочерних классах"""
-    
-    def get_info(self):
-        """Возвращает информацию о сервисе для отображения в меню"""
+        """Каждый сервис обязан зарегистрировать свои роуты здесь."""
+        pass
+
+    def get_info(self) -> dict:
         return {
-            'name': self.name,
-            'url': self.url_prefix,
-            'available': True
+            "name": self.name,
+            "endpoint": f"{self.blueprint.name}.index",
+            "available": self.available,
+            "order": self.order,
+            "url_prefix": self.url_prefix,
         }
+
+    def init_app(self, app):
+        app.register_blueprint(self.blueprint)
