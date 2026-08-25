@@ -2,6 +2,7 @@ import os
 import subprocess
 from dataclasses import dataclass
 
+
 @dataclass
 class SSHResult:
     ok: bool
@@ -48,7 +49,7 @@ class WindowsSSHClient:
             )
         except subprocess.TimeoutExpired:
             return SSHResult(False, "", "Таймаут SSH")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return SSHResult(False, "", str(e))
 
     def is_online(self) -> bool:
