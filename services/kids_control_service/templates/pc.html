@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+
+{% block title %}Контроль ПК{% endblock %}
+
+{% block header %}Контроль ПК{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('pc_control_service.static', filename='style.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="pc-wrap">
+
+    <div class="pc-top">
+        <div class="pc-meta">
+            <div>
+                Статус:
+                <span id="online-status" class="{{ 'pc-online' if online else 'pc-offline' }}">
+                    {{ "Онлайн" if online else "Оффлайн" }}
+                </span>
+            </div>
+            <div>
+                Последняя сессия: <span id="last-session">{{ last_session_text }}</span>
+            </div>
+        </div>
+
+        <div class="access-toggle">
+            <span>Доступ</span>
+            <button type="button" id="access-on" class="{{ 'active-on' if access_enabled else '' }}">Вкл</button>
+            <button type="button" id="access-off" class="{{ 'active-off' if not access_enabled else '' }}">Выкл</button>
+        </div>
+    </div>
+
+    <div class="pc-actions">
+        <button class="pc-btn primary" data-power="on">Включить</button>
+        <button class="pc-btn" data-power="off">Выключить</button>
+        <button class="pc-btn" data-power="reboot">Перезапуск</button>
+        <button class="pc-btn" data-power="lock">Заблокировать</button>
+        <button class="pc-btn" id="refresh-processes">Обновить процессы</button>
+    </div>
+
+    <div class="pc-grid">
+        <div class="pc-card">
+            <h3>Процессы</h3>
+            <div id="process-list" class="process-list">
+                Загрузка...
+            </div>
+        </div>
+
+        <div class="pc-card notify-box">
+            <h3>Уведомление</h3>
+            <textarea id="notify-text" placeholder="Текст сообщения на экран..."></textarea>
+            <button class="pc-btn primary" id="notify-send">Отправить</button>
+        </div>
+    </div>
+
+    <div id="pc-message" class="pc-message"></div>
+</div>
+
+<script>
+const messageBox = document.getElementById("pc-message");
+const processList = document.getElementById("process-list");
+const lastSession = document.getElementById("last-session");
+const onlineStatus = document.getElementById("online-status");
+const accessOnBtn = document.getElementById("access-on");
+const accessOffBtn = document.getElementById("access-off");
+
+function setMessage(text, isError = false) {
+    messageBox.textContent = text || "";
+    messageBox.classList.toggle("error", !!isError);
+}
+
+async function api(url, options = {}) {
+    const res = await fetch(url, {
+        headers: { "Content-Type": "application/json" },
+        ...options,
+    });
+    const data = await res.json();
+    if (!res.ok || data.status === "error") {
+        throw new Error(data.message || "Ошибка запроса");
+    }
+    return data;
+}
+
+function renderProcesses(processes) {
+    if (!processes.length) {
+        processList.innerHTML = "Нет данных";
+        return;
+    }
+
+    processList.innerHTML = processes.map(p => `
+        <div class="process-row">
+            <div>
+                <div class="process-name">${p.name}</div>
+                <div class="process-meta">PID: ${p.pid} · ${p.memory_mb} МБ</div>
+            </div>
+            <button class="pc-btn danger" onclick="killProcess(${p.pid}, '${p.name}')">Убить</button>
+        </div>
+    `).join("");
+}
+
+async function loadStatus() {
+    try {
+        const data = await api("/pc/api/status");
+        lastSession.textContent = data.last_session_text || "—";
+        onlineStatus.textContent = data.online ? "Онлайн" : "Оффлайн";
+        onlineStatus.className = data.online ? "pc-online" : "pc-offline";
+        accessOnBtn.classList.toggle("active-on", !!data.access_enabled);
+        accessOffBtn.classList.toggle("active-off", !data.access_enabled);
+    } catch (e) {
+        setMessage(e.message, true);
+    }
+}
+
+async function loadProcesses() {
+    processList.innerHTML = "Загрузка...";
+    try {
+        const data = await api("/pc/api/processes");
+        renderProcesses(data.processes || []);
+    } catch (e) {
+        processList.innerHTML = "Ошибка загрузки";
+        setMessage(e.message, true);
+    }
+}
+
+async function setAccess(enabled) {
+    try {
+        const data = await api("/pc/api/access", {
+            method: "POST",
+            body: JSON.stringify({ enabled }),
+        });
+        accessOnBtn.classList.toggle("active-on", !!data.access_enabled);
+        accessOffBtn.classList.toggle("active-off", !data.access_enabled);
+        setMessage(data.message || "Ок");
+    } catch (e) {
+        setMessage(e.message, true);
+    }
+}
+
+async function powerAction(action) {
+    try {
+        const data = await api("/pc/api/power", {
+            method: "POST",
+            body: JSON.stringify({ action }),
+        });
+        setMessage(data.message || "Ок");
+    } catch (e) {
+        setMessage(e.message, true);
+    }
+}
+
+async function killProcess(pid, name) {
+    try {
+        const data = await api("/pc/api/kill", {
+            method: "POST",
+            body: JSON.stringify({ pid, name }),
+        });
+        setMessage(data.message || "Ок");
+        loadProcesses();
+    } catch (e) {
+        setMessage(e.message, true);
+    }
+}
+
+async function sendNotify() {
+    const text = document.getElementById("notify-text").value.trim();
+    if (!text) {
+        setMessage("Введите текст сообщения", true);
+        return;
+    }
+    try {
+        const data = await api("/pc/api/notify", {
+            method: "POST",
+            body: JSON.stringify({ text }),
+        });
+        setMessage(data.message || "Ок");
+    } catch (e) {
+        setMessage(e.message, true);
+    }
+}
+
+accessOnBtn.addEventListener("click", () => setAccess(true));
+accessOffBtn.addEventListener("click", () => setAccess(false));
+document.getElementById("refresh-processes").addEventListener("click", loadProcesses);
+document.getElementById("notify-send").addEventListener("click", sendNotify);
+
+document.querySelectorAll("[data-power]").forEach((btn) => {
+    btn.addEventListener("click", () => powerAction(btn.dataset.power));
+});
+
+loadStatus();
+loadProcesses();
+</script>
+{% endblock %}
