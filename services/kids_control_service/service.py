@@ -2,6 +2,7 @@ from flask import jsonify, render_template, request
 
 from services.base import BaseService
 
+
 class KidsControlService(BaseService):
     name = "Контроль детского ПК"
     url_prefix = "/pc"
