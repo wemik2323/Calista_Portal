@@ -1,6 +1,7 @@
 from flask import jsonify, render_template, request
 
 from services.base import BaseService
+from .windows_ssh import WindowsSSHClient
 
 
 class KidsControlService(BaseService):
@@ -13,6 +14,10 @@ class KidsControlService(BaseService):
     access_enabled = True
     last_session_text = "—"
 
+    def __init__(self):
+        self.ssh = WindowsSSHClient()
+        super().__init__()
+
     def register_routes(self):
         bp = self.blueprint
 
@@ -23,14 +28,14 @@ class KidsControlService(BaseService):
                 current_service_name=self.name,
                 access_enabled=self.access_enabled,
                 last_session_text=self.last_session_text,
-                online=False,  # позже сделаем реальную проверку
+                online=self.ssh.is_online(),
             )
 
         @bp.route("/api/status")
         def status():
             return jsonify(
                 {
-                    "online": False,
+                    "online": self.ssh.is_online(),
                     "access_enabled": self.access_enabled,
                     "last_session_text": self.last_session_text,
                 }
@@ -42,12 +47,16 @@ class KidsControlService(BaseService):
             enabled = bool(data.get("enabled"))
             self.access_enabled = enabled
 
-            # TODO: если enabled=False -> сразу lock по SSH
+            if not enabled:
+                self.ssh.lock()
+
             return jsonify(
                 {
                     "status": "success",
                     "access_enabled": self.access_enabled,
-                    "message": "Доступ включён" if enabled else "Доступ выключен",
+                    "message": "Доступ включён"
+                    if enabled
+                    else "Доступ выключен, экран заблокирован",
                 }
             )
 
@@ -56,27 +65,69 @@ class KidsControlService(BaseService):
             data = request.get_json(silent=True) or {}
             action = (data.get("action") or "").strip()
 
-            if action not in {"on", "off", "reboot", "lock"}:
-                return jsonify({"status": "error", "message": "Неизвестная команда"}), 400
+            if action == "on":
+                return jsonify({"status": "error", "message": "WOL недоступен"}), 400
 
-            # TODO: реальные WOL/SSH команды
-            labels = {
-                "on": "Включение (WOL) — заглушка",
-                "off": "Выключение — заглушка",
-                "reboot": "Перезапуск — заглушка",
-                "lock": "Блокировка экрана — заглушка",
+            actions = {
+                "off": self.ssh.shutdown,
+                "reboot": self.ssh.reboot,
+                "lock": self.ssh.lock,
             }
-            return jsonify({"status": "success", "message": labels[action]})
+            if action not in actions:
+                return jsonify(
+                    {"status": "error", "message": "Неизвестная команда"}
+                ), 400
+
+            result = actions[action]()
+            if not result.ok:
+                return jsonify(
+                    {"status": "error", "message": result.error or "Ошибка"}
+                ), 500
+
+            return jsonify(
+                {"status": "success", "message": f"Команда {action} выполнена"}
+            )
 
         @bp.route("/api/processes")
         def processes():
-            # TODO: tasklist по SSH
-            demo = [
-                {"name": "chrome.exe", "pid": 1234, "memory_mb": 120},
-                {"name": "steam.exe", "pid": 2345, "memory_mb": 80},
-                {"name": "javaw.exe", "pid": 3456, "memory_mb": 900},
-            ]
-            return jsonify({"status": "success", "processes": demo})
+            result = self.ssh.list_processes()
+            if not result.ok:
+                return jsonify(
+                    {"status": "error", "message": result.error or "Нет доступа к ПК"}
+                ), 500
+
+            items = []
+            for line in result.output.splitlines():
+                parts = line.split("|")
+                if len(parts) != 3:
+                    continue
+                name, pid, mem = parts
+                items.append(
+                    {
+                        "name": name if name.endswith(".exe") else name + ".exe",
+                        "pid": int(pid),
+                        "memory_mb": int(mem),
+                    }
+                )
+            return jsonify({"status": "success", "processes": items})
+
+        @bp.route("/api/notify", methods=["POST"])
+        def notify():
+            data = request.get_json(silent=True) or {}
+            text = (data.get("text") or "").strip()
+            if not text:
+                return jsonify({"status": "error", "message": "Пустое сообщение"}), 400
+
+            result = self.ssh.notify(text)
+            if not result.ok:
+                return jsonify(
+                    {
+                        "status": "error",
+                        "message": result.error or "Не удалось отправить",
+                    }
+                ), 500
+
+            return jsonify({"status": "success", "message": "Сообщение отправлено"})
 
         @bp.route("/api/kill", methods=["POST"])
         def kill():
@@ -84,30 +135,21 @@ class KidsControlService(BaseService):
             pid = data.get("pid")
             name = data.get("name")
 
-            if not pid and not name:
+            if pid:
+                result = self.ssh.kill_pid(int(pid))
+            elif name:
+                result = self.ssh.kill_name(str(name))
+            else:
                 return jsonify({"status": "error", "message": "Не указан процесс"}), 400
 
-            # TODO: taskkill по SSH
-            target = name or f"PID {pid}"
-            return jsonify(
-                {
-                    "status": "success",
-                    "message": f"Заглушка: убит процесс {target}",
-                }
-            )
+            if not result.ok:
+                return jsonify(
+                    {
+                        "status": "error",
+                        "message": result.error
+                        or result.output
+                        or "Не удалось убить процесс",
+                    }
+                ), 500
 
-        @bp.route("/api/notify", methods=["POST"])
-        def notify():
-            data = request.get_json(silent=True) or {}
-            text = (data.get("text") or "").strip()
-
-            if not text:
-                return jsonify({"status": "error", "message": "Пустое сообщение"}), 400
-
-            # TODO: msg/уведомление по SSH
-            return jsonify(
-                {
-                    "status": "success",
-                    "message": f"Заглушка: отправлено «{text}»",
-                }
-            )
+            return jsonify({"status": "success", "message": "Процесс завершён"})
