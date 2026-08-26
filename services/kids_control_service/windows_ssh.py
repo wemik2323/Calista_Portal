@@ -43,15 +43,27 @@ class WindowsSSHClient:
             completed = subprocess.run(
                 cmd,
                 capture_output=True,
-                text=True,
+                text=False,
                 timeout=15,
                 check=False,
             )
+
+            stdout = completed.stdout.decode(
+                "cp1251",
+                errors="replace",
+            ).strip()
+
+            stderr = completed.stderr.decode(
+                "cp1251",
+                errors="replace",
+            ).strip()
+
             return SSHResult(
                 ok=completed.returncode == 0,
-                output=(completed.stdout or "").strip(),
-                error=(completed.stderr or "").strip(),
+                output=stdout,
+                error=stderr,
             )
+
         except subprocess.TimeoutExpired:
             return SSHResult(False, "", "Таймаут SSH")
         except Exception as e:  # noqa: BLE001
