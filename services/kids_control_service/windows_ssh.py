@@ -9,6 +9,7 @@ class SSHResult:
     output: str
     error: str = ""
 
+
 class WindowsSSHClient:
     def __init__(self):
         self.host = os.getenv("KIDS_PC_HOST", "")
@@ -19,10 +20,14 @@ class WindowsSSHClient:
     def _base_cmd(self) -> list[str]:
         cmd = [
             "ssh",
-            "-o", "BatchMode=yes",
-            "-o", "ConnectTimeout=5",
-            "-o", "StrictHostKeyChecking=accept-new",
-            "-p", str(self.port),
+            "-o",
+            "BatchMode=yes",
+            "-o",
+            "ConnectTimeout=5",
+            "-o",
+            "StrictHostKeyChecking=accept-new",
+            "-p",
+            str(self.port),
         ]
         if self.key:
             cmd += ["-i", self.key]
@@ -67,16 +72,20 @@ class WindowsSSHClient:
 
     def notify(self, text: str) -> SSHResult:
         safe = text.replace('"', "'")
-        return self.run(
-            f'powershell -NoProfile -Command "msg * /time:30 \\"{safe}\\""'
-        )
+        return self.run(f'powershell -NoProfile -Command "msg * /time:30 \\"{safe}\\""')
 
     def list_processes(self) -> SSHResult:
         return self.run(
             "powershell -NoProfile -Command "
-            "\"Get-Process | Sort-Object WorkingSet -Descending | "
+            '"$OutputEncoding = [System.Text.UTF8Encoding]::new(); '
+            "[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new(); "
+            "Get-Process | "
+            "Sort-Object WorkingSet -Descending | "
             "Select-Object -First 30 ProcessName,Id,WorkingSet | "
-            "ForEach-Object { $_.ProcessName + '|' + $_.Id + '|' + [int]($_.WorkingSet/1MB) }\""
+            "ForEach-Object { "
+            "$_.ProcessName + '|' + $_.Id + '|' + "
+            "[int]($_.WorkingSet/1MB) "
+            '}"'
         )
 
     def kill_pid(self, pid: int) -> SSHResult:
