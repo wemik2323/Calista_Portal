@@ -89,15 +89,10 @@ class WindowsSSHClient:
     def list_processes(self) -> SSHResult:
         return self.run(
             "powershell -NoProfile -Command "
-            '"$OutputEncoding = [System.Text.UTF8Encoding]::new(); '
-            "[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new(); "
-            "Get-Process | "
-            "Sort-Object WorkingSet -Descending | "
+            '"Get-Process | Sort-Object WorkingSet -Descending | '
             "Select-Object -First 30 ProcessName,Id,WorkingSet | "
-            "ForEach-Object { "
-            "$_.ProcessName + '|' + $_.Id + '|' + "
-            "[int]($_.WorkingSet/1MB) "
-            '}"'
+            "ForEach-Object { $_.ProcessName + '|' + $_.Id + '|' + "
+            '[int]($_.WorkingSet/1MB) }"'
         )
 
     def kill_pid(self, pid: int) -> SSHResult:
