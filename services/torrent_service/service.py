@@ -1,4 +1,5 @@
 from flask import jsonify, render_template, request
+
 from services.base import BaseService
 
 from .history import add_entry, list_entries
