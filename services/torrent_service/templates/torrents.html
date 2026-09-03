@@ -13,12 +13,12 @@
         <input id="device-name" class="magnet-input" type="text"
                placeholder="Имя устройства" autocomplete="nickname">
     </div>
+
     <form id="add-form" class="add-form">
         <input id="magnet-input" class="magnet-input" type="text"
                placeholder="magnet:?xt=urn:btih:..." autocomplete="off">
         <button type="submit" class="add-btn">Добавить</button>
     </form>
-
 
     <div id="message" class="message"></div>
 
@@ -28,24 +28,26 @@
             <thead>
                 <tr>
                     <th>Когда</th>
+                    <th>Название</th>
+                    <th>Прогресс</th>
+                    <th>Размер</th>
                     <th>Кто</th>
                     <th>Устройство</th>
-                    <th>Название</th>
-                    <th>Размер</th>
                 </tr>
             </thead>
             <tbody id="history-body">
                 {% for item in history %}
-                <tr>
-                    <td>{{ item.created_at }}</td>
+                <tr data-hash="{{ item.hash or '' }}">
+                    <td class="col-when">{{ item.created_at }}</td>
+                    <td class="title-cell">{{ item.title }}</td>
+                    <td class="col-progress">—</td>
+                    <td class="col-size">{{ item.size_human }}</td>
                     <td>{{ item.who }}</td>
                     <td>{{ item.device }}</td>
-                    <td class="title-cell">{{ item.title }}</td>
-                    <td>{{ item.size_human }}</td>
                 </tr>
                 {% else %}
                 <tr id="empty-row">
-                    <td colspan="5">Пока пусто</td>
+                    <td colspan="6">Пока пусто</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -54,17 +56,13 @@
 </div>
 
 <script>
-
-
 const deviceInput = document.getElementById("device-name");
 const form = document.getElementById("add-form");
 const input = document.getElementById("magnet-input");
 const message = document.getElementById("message");
 const body = document.getElementById("history-body");
 
-// подтянуть сохранённое имя
 deviceInput.value = localStorage.getItem("calista_device_name") || "";
-
 deviceInput.addEventListener("change", () => {
     const v = deviceInput.value.trim();
     if (v) localStorage.setItem("calista_device_name", v);
@@ -80,24 +78,62 @@ function fmtWhen(iso) {
     catch { return iso; }
 }
 
+function humanSize(n) {
+    if (!n) return "—";
+    const u = ["B", "KB", "MB", "GB", "TB"];
+    let x = n, i = 0;
+    while (x >= 1024 && i < u.length - 1) { x /= 1024; i++; }
+    return (i ? x.toFixed(1) : String(Math.round(x))) + " " + u[i];
+}
+
 function prependRow(entry) {
     const empty = document.getElementById("empty-row");
     if (empty) empty.remove();
+
     const tr = document.createElement("tr");
+    if (entry.hash) tr.dataset.hash = entry.hash;
+
     tr.innerHTML = `
-        <td>${fmtWhen(entry.created_at)}</td>
+        <td class="col-when">${fmtWhen(entry.created_at)}</td>
+        <td class="title-cell">${entry.title || "—"}</td>
+        <td class="col-progress">—</td>
+        <td class="col-size">${entry.size_human || "—"}</td>
         <td>${entry.who || "—"}</td>
         <td>${entry.device || "—"}</td>
-        <td class="title-cell">${entry.title || "—"}</td>
-        <td>${entry.size_human || "—"}</td>
     `;
     body.prepend(tr);
 }
 
-document.querySelectorAll("#history-body tr td:first-child").forEach((td) => {
-    if (td.parentElement.id === "empty-row") return;
+// даты при загрузке
+document.querySelectorAll("#history-body tr .col-when").forEach((td) => {
     td.textContent = fmtWhen(td.textContent.trim());
 });
+
+// прогресс из qBittorrent по hash
+async function refreshProgress() {
+    try {
+        const res = await fetch("/torrents/api/torrents");
+        const data = await res.json();
+        if (!res.ok || data.status !== "success") return;
+
+        const byHash = {};
+        for (const t of data.items || []) {
+            if (t.hash) byHash[t.hash.toLowerCase()] = t;
+        }
+
+        document.querySelectorAll("#history-body tr[data-hash]").forEach((tr) => {
+            const h = (tr.dataset.hash || "").toLowerCase();
+            if (!h || !byHash[h]) return;
+            const t = byHash[h];
+            const prog = tr.querySelector(".col-progress");
+            const size = tr.querySelector(".col-size");
+            const title = tr.querySelector(".title-cell");
+            if (prog) prog.textContent = `${t.progress}% · ${t.status}`;
+            if (size && t.size_bytes) size.textContent = humanSize(t.size_bytes);
+            if (title && t.title) title.textContent = t.title;
+        });
+    } catch (_) { /* ignore */ }
+}
 
 form.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -105,9 +141,7 @@ form.addEventListener("submit", async (e) => {
     const deviceName = deviceInput.value.trim();
     if (!magnet) return;
 
-    if (deviceName) {
-        localStorage.setItem("calista_device_name", deviceName);
-    }
+    if (deviceName) localStorage.setItem("calista_device_name", deviceName);
 
     setMessage("Добавляю...");
     try {
@@ -119,7 +153,13 @@ form.addEventListener("submit", async (e) => {
                 device_name: deviceName || null,
             }),
         });
-        const data = await res.json();
+        const text = await res.text();
+        let data;
+        try { data = JSON.parse(text); }
+        catch {
+            setMessage(`Сервер вернул не JSON (${res.status})`, true);
+            return;
+        }
         if (!res.ok || data.status !== "success") {
             setMessage(data.message || "Ошибка", true);
             return;
@@ -127,11 +167,13 @@ form.addEventListener("submit", async (e) => {
         setMessage(data.message || "Добавлено");
         if (data.entry) prependRow(data.entry);
         input.value = "";
+        refreshProgress();
     } catch (err) {
         setMessage(String(err), true);
     }
 });
 
-
+refreshProgress();
+setInterval(refreshProgress, 3000);
 </script>
 {% endblock %}

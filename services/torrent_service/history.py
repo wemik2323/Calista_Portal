@@ -20,6 +20,7 @@ def add_entry(
     title: str,
     size_bytes: int | None,
     magnet: str,
+    info_hash: str
 ) -> dict:
     _ensure_file()
     entry = {
@@ -30,6 +31,7 @@ def add_entry(
         "size_human": _human_size(size_bytes),
         "magnet": magnet[:120] + ("…" if len(magnet) > 120 else ""),
         "created_at": datetime.now(timezone.utc).isoformat(),
+        "hash": (info_hash or "").lower() or None,
     }
     with _LOCK:
         data = json.loads(_HISTORY_FILE.read_text(encoding="utf-8") or "[]")

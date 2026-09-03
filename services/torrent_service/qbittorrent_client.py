@@ -44,9 +44,7 @@ class QBittorrentClient:
             timeout=30,
         )
         if r.status_code != 200:
-            raise QBittorrentClientError(
-                f"Ошибка добавления: {r.status_code} {r.text}"
-            )
+            raise QBittorrentClientError(f"Ошибка добавления: {r.status_code} {r.text}")
 
     def find_torrent_by_magnet(self, magnet: str, wait_sec: float = 3.0) -> dict | None:
         """Ждём метаданные и ищем торрент по hash из magnet."""
@@ -85,3 +83,15 @@ def _hash_from_magnet(magnet: str) -> str | None:
     h = magnet[start:end]
     # qBittorrent обычно отдаёт hex40; base32 (32 символа) тоже бывает
     return h.lower()
+
+
+def list_torrents(self) -> list[dict]:
+    self.login()
+    r = self.session.get(
+        f"{self.base_url}/api/v2/torrents/info",
+        headers={"Referer": self.base_url},
+        timeout=15,
+    )
+    if r.status_code != 200:
+        raise QBittorrentClientError(f"Не удалось получить список: {r.status_code}")
+    return r.json()

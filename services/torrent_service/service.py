@@ -1,9 +1,12 @@
 from flask import jsonify, render_template, request
-
 from services.base import BaseService
 
 from .history import add_entry, list_entries
-from .qbittorrent_client import QBittorrentClient, QBittorrentClientError
+from .qbittorrent_client import (
+    QBittorrentClient,
+    QBittorrentClientError,
+    _hash_from_magnet,
+)
 
 
 class TorrentService(BaseService):
@@ -41,8 +44,8 @@ class TorrentService(BaseService):
                     {"status": "error", "message": "Нужна корректная magnet-ссылка"}
                 ), 400
 
-            who = _who(request)
-            device = _device(request)
+            who = _who(request, data)
+            device = _device(request, data)
 
             try:
                 self.qbit.add_magnet(magnet)
@@ -51,10 +54,14 @@ class TorrentService(BaseService):
 
             title = "Без названия"
             size_bytes = None
+            info_hash = None
             info = self.qbit.find_torrent_by_magnet(magnet, wait_sec=4.0)
             if info:
                 title = info.get("name") or title
                 size_bytes = info.get("total_size") or info.get("size")
+                info_hash = info.get("hash")
+            if not info_hash:
+                info_hash = _hash_from_magnet(magnet)
 
             entry = add_entry(
                 who=who,
@@ -62,6 +69,7 @@ class TorrentService(BaseService):
                 title=title,
                 size_bytes=size_bytes,
                 magnet=magnet,
+                info_hash=info_hash,
             )
             return jsonify(
                 {
@@ -70,6 +78,15 @@ class TorrentService(BaseService):
                     "entry": entry,
                 }
             )
+
+        @bp.route("/api/torrents")
+        def api_torrents():
+            try:
+                raw = self.qbit.list_torrents()
+                items = [_format_torrent(t) for t in raw]
+                return jsonify({"status": "success", "items": items})
+            except QBittorrentClientError as e:
+                return jsonify({"status": "error", "message": str(e)}), 500
 
 
 def _who(req, data=None) -> str:
@@ -108,3 +125,52 @@ def _device(req, data=None) -> str:
     if "linux" in ua:
         return "Linux"
     return "Unknown"
+
+
+_STATE_MAP = {
+    "downloading": "Скачивается",
+    "stalledDL": "Скачивается (нет пиров)",
+    "metaDL": "Метаданные",
+    "forcedDL": "Скачивается",
+    "queuedDL": "В очереди",
+    "pausedDL": "Пауза",
+    "uploading": "Раздаётся",
+    "stalledUP": "Раздаётся",
+    "forcedUP": "Раздаётся",
+    "queuedUP": "Очередь раздачи",
+    "pausedUP": "Пауза (раздача)",
+    "checkingDL": "Проверка",
+    "checkingUP": "Проверка",
+    "checkingResumeData": "Проверка",
+    "moving": "Перемещение",
+    "error": "Ошибка",
+    "missingFiles": "Нет файлов",
+    "unknown": "Неизвестно",
+}
+
+
+def _format_torrent(t: dict) -> dict:
+    progress = float(t.get("progress") or 0) * 100
+    state = t.get("state") or "unknown"
+    # «скачан» — progress ~100% и уже не качает
+    if progress >= 99.9 and state in {
+        "uploading",
+        "stalledUP",
+        "forcedUP",
+        "pausedUP",
+        "queuedUP",
+    }:
+        status = "Скачан"
+    else:
+        status = _STATE_MAP.get(state, state)
+
+    return {
+        "hash": t.get("hash"),
+        "title": t.get("name") or "—",
+        "size_bytes": t.get("size") or t.get("total_size") or 0,
+        "progress": round(progress, 1),
+        "status": status,
+        "state": state,
+        "dlspeed": t.get("dlspeed") or 0,
+        "eta": t.get("eta") or 0,
+    }
