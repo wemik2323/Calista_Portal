@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+
+{% block title %}Торренты{% endblock %}
+{% block header %}Торренты{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('torrent_service.static', filename='style.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="torrent-wrap">
+    <div class="device-row" style="margin-bottom: 10px;">
+        <input id="device-name" class="magnet-input" type="text"
+               placeholder="Имя устройства (ПК зал, iPhone...)" autocomplete="nickname">
+    </div>
+    <form id="add-form" class="add-form">
+        <input id="magnet-input" class="magnet-input" type="text"
+               placeholder="magnet:?xt=urn:btih:..." autocomplete="off">
+        <button type="submit" class="add-btn">Добавить</button>
+    </form>
+
+
+    <div id="message" class="message"></div>
+
+    <h3 class="section-title">История добавлений</h3>
+    <div class="table-wrap">
+        <table class="history-table">
+            <thead>
+                <tr>
+                    <th>Когда</th>
+                    <th>Кто</th>
+                    <th>Устройство</th>
+                    <th>Название</th>
+                    <th>Размер</th>
+                </tr>
+            </thead>
+            <tbody id="history-body">
+                {% for item in history %}
+                <tr>
+                    <td>{{ item.created_at }}</td>
+                    <td>{{ item.who }}</td>
+                    <td>{{ item.device }}</td>
+                    <td class="title-cell">{{ item.title }}</td>
+                    <td>{{ item.size_human }}</td>
+                </tr>
+                {% else %}
+                <tr id="empty-row">
+                    <td colspan="5">Пока пусто</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+
+
+const deviceInput = document.getElementById("device-name");
+const form = document.getElementById("add-form");
+const input = document.getElementById("magnet-input");
+const message = document.getElementById("message");
+const body = document.getElementById("history-body");
+
+// подтянуть сохранённое имя
+deviceInput.value = localStorage.getItem("calista_device_name") || "";
+
+deviceInput.addEventListener("change", () => {
+    const v = deviceInput.value.trim();
+    if (v) localStorage.setItem("calista_device_name", v);
+});
+
+function setMessage(text, isError = false) {
+    message.textContent = text || "";
+    message.classList.toggle("error", !!isError);
+}
+
+function fmtWhen(iso) {
+    try { return new Date(iso).toLocaleString(); }
+    catch { return iso; }
+}
+
+function prependRow(entry) {
+    const empty = document.getElementById("empty-row");
+    if (empty) empty.remove();
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+        <td>${fmtWhen(entry.created_at)}</td>
+        <td>${entry.who || "—"}</td>
+        <td>${entry.device || "—"}</td>
+        <td class="title-cell">${entry.title || "—"}</td>
+        <td>${entry.size_human || "—"}</td>
+    `;
+    body.prepend(tr);
+}
+
+document.querySelectorAll("#history-body tr td:first-child").forEach((td) => {
+    if (td.parentElement.id === "empty-row") return;
+    td.textContent = fmtWhen(td.textContent.trim());
+});
+
+form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const magnet = input.value.trim();
+    const deviceName = deviceInput.value.trim();
+    if (!magnet) return;
+
+    if (deviceName) {
+        localStorage.setItem("calista_device_name", deviceName);
+    }
+
+    setMessage("Добавляю...");
+    try {
+        const res = await fetch("/torrents/api/add", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                magnet,
+                device_name: deviceName || null,
+            }),
+        });
+        const data = await res.json();
+        if (!res.ok || data.status !== "success") {
+            setMessage(data.message || "Ошибка", true);
+            return;
+        }
+        setMessage(data.message || "Добавлено");
+        if (data.entry) prependRow(data.entry);
+        input.value = "";
+    } catch (err) {
+        setMessage(String(err), true);
+    }
+});
+
+
+</script>
+{% endblock %}
