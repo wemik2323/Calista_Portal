@@ -13,7 +13,7 @@ class QBittorrentClient:
         self.base_url = os.getenv("QBIT_URL").rstrip("/")
         self.username = os.getenv("QBIT_USERNAME")
         self.password = os.getenv("QBIT_PASSWORD")
-        self.save_path = os.getenv("QBIT_SAVE_PATH", "/data/media/torrents")
+        self.save_path = os.getenv("QBIT_SAVE_PATH", "/mnt/TER")
         self.session = requests.Session()
         self._logged_in = False
 
