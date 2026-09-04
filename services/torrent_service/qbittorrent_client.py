@@ -10,9 +10,9 @@ class QBittorrentClientError(RuntimeError):
 
 class QBittorrentClient:
     def __init__(self):
-        self.base_url = os.getenv("QBIT_URL", "VAR").rstrip("/")
-        self.username = os.getenv("QBIT_USERNAME", "VAR")
-        self.password = os.getenv("QBIT_PASSWORD", "VAR")
+        self.base_url = os.getenv("QBIT_URL").rstrip("/")
+        self.username = os.getenv("QBIT_USERNAME")
+        self.password = os.getenv("QBIT_PASSWORD")
         self.save_path = os.getenv("QBIT_SAVE_PATH", "/data/media/torrents")
         self.session = requests.Session()
         self._logged_in = False
@@ -67,6 +67,18 @@ class QBittorrentClient:
             time.sleep(0.5)
         return None
 
+    def list_torrents(self) -> list[dict]:
+        self.login()
+        r = self.session.get(
+            f"{self.base_url}/api/v2/torrents/info",
+            headers={"Referer": self.base_url},
+            timeout=15,
+        )
+        if r.status_code != 200:
+            raise QBittorrentClientError(f"Не удалось получить список: {r.status_code}")
+        return r.json()
+
+
 
 def _hash_from_magnet(magnet: str) -> str | None:
     # magnet:?xt=urn:btih:<hash>&...
@@ -83,15 +95,3 @@ def _hash_from_magnet(magnet: str) -> str | None:
     h = magnet[start:end]
     # qBittorrent обычно отдаёт hex40; base32 (32 символа) тоже бывает
     return h.lower()
-
-
-def list_torrents(self) -> list[dict]:
-    self.login()
-    r = self.session.get(
-        f"{self.base_url}/api/v2/torrents/info",
-        headers={"Referer": self.base_url},
-        timeout=15,
-    )
-    if r.status_code != 200:
-        raise QBittorrentClientError(f"Не удалось получить список: {r.status_code}")
-    return r.json()
