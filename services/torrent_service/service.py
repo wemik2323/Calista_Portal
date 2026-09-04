@@ -91,21 +91,7 @@ class TorrentService(BaseService):
 
 
 def _who(req, data=None) -> str:
-    data = data or {}
-    custom = (data.get("device_name") or "").strip()
-    if custom:
-        return custom[:64]
-
-    auth = req.authorization
-    if auth and auth.username:
-        return auth.username
-
-    for h in ("X-Remote-User", "X-Forwarded-User", "Remote-User"):
-        v = req.headers.get(h)
-        if v:
-            return v
-
-    return req.headers.get("X-Real-IP") or req.remote_addr or "anonymous"
+    return req.headers.get("X-Real-IP") or req.remote_addr or "unknown"
 
 
 def _device(req, data=None) -> str:

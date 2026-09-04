@@ -9,11 +9,6 @@
 
 {% block content %}
 <div class="torrent-wrap">
-    <div class="device-row" style="margin-bottom: 10px;">
-        <input id="device-name" class="magnet-input" type="text"
-               placeholder="Имя устройства" autocomplete="nickname">
-    </div>
-
     <form id="add-form" class="add-form">
         <input id="magnet-input" class="magnet-input" type="text"
                placeholder="magnet:?xt=urn:btih:..." autocomplete="off">
@@ -56,17 +51,10 @@
 </div>
 
 <script>
-const deviceInput = document.getElementById("device-name");
 const form = document.getElementById("add-form");
 const input = document.getElementById("magnet-input");
 const message = document.getElementById("message");
 const body = document.getElementById("history-body");
-
-deviceInput.value = localStorage.getItem("calista_device_name") || "";
-deviceInput.addEventListener("change", () => {
-    const v = deviceInput.value.trim();
-    if (v) localStorage.setItem("calista_device_name", v);
-});
 
 function setMessage(text, isError = false) {
     message.textContent = text || "";
@@ -138,10 +126,7 @@ async function refreshProgress() {
 form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const magnet = input.value.trim();
-    const deviceName = deviceInput.value.trim();
     if (!magnet) return;
-
-    if (deviceName) localStorage.setItem("calista_device_name", deviceName);
 
     setMessage("Добавляю...");
     try {
@@ -150,7 +135,6 @@ form.addEventListener("submit", async (e) => {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 magnet,
-                device_name: deviceName || null,
             }),
         });
         const text = await res.text();
