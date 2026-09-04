@@ -109,11 +109,6 @@ def _who(req, data=None) -> str:
 
 
 def _device(req, data=None) -> str:
-    data = data or {}
-    custom = (data.get("device_name") or "").strip()
-    if custom:
-        return custom[:64]
-
     ua = (req.headers.get("User-Agent") or "").lower()
     if "android" in ua:
         return "Android"
