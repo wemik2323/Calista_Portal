@@ -27,8 +27,6 @@
             <input id="create-name" type="text" placeholder="Выживание">
             <label>Версия</label>
             <select id="create-version"></select>
-            <label>Порт</label>
-            <input id="create-port" type="number" value="25565">
         </div>
         <div id="modded-stub" class="hidden">Пока заглушка. Скоро.</div>
         <div class="mc-modal-actions">
@@ -93,6 +91,7 @@
         </button>
         <button class="mc-btn" data-act="regen" disabled title="Этап 5">Перегенерировать</button>
         <button class="mc-btn" data-act="console" disabled title="Этап 6">Консоль</button>
+        <button class="mc-btn" data-act="delete">Удалить</button>
       </div>
     </div>
   `).join("");
@@ -137,7 +136,6 @@
                     type,
                     version: document.getElementById("create-version").value,
                     name: document.getElementById("create-name").value,
-                    port: document.getElementById("create-port").value,
                 }),
             });
             document.getElementById("modal-create").classList.add("hidden");
@@ -187,6 +185,12 @@
           <input data-key="${f.key}" type="${f.type === "number" ? "number" : "text"}" value="${val}"></label>`;
                 }).join("");
                 document.getElementById("modal-settings").classList.remove("hidden");
+            } else if (act === "delete") {
+                if (!confirm("Удалить сервер и все файлы мира?")) return;
+                setMsg("Удаляю...");
+                await api(`/minecraft/api/servers/${id}`, { method: "DELETE" });
+                setMsg("Удалён");
+                await refresh();
             }
         } catch (err) {
             setMsg(err.message, true);

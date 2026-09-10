@@ -1,5 +1,6 @@
 import json
 import os
+import shutil
 import signal
 import subprocess
 import time
@@ -118,6 +119,19 @@ def create_vanilla_server(
     return meta
 
 
+def delete_server(server_id: str) -> None:
+    # сначала остановить
+    if _is_running(server_id):
+        stop_server(server_id)
+
+    path = _server_dir(server_id)
+    if path.exists():
+        shutil.rmtree(path)
+
+    items = [s for s in _load_index() if s["id"] != server_id]
+    _save_index(items)
+
+
 def start_server(server_id: str) -> None:
     if _is_running(server_id):
         return
@@ -126,7 +140,7 @@ def start_server(server_id: str) -> None:
     if not jar.exists():
         raise RuntimeError("server.jar не найден")
 
-    log = open(path / "console.log", "a", encoding="utf-8") # noqa: SIM115
+    log = open(path / "console.log", "a", encoding="utf-8")  # noqa: SIM115
     proc = subprocess.Popen(
         [
             MC_JAVA,

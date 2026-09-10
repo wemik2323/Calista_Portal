@@ -47,23 +47,28 @@ class MinecraftService(BaseService):
 
             version = (data.get("version") or "").strip()
             name = (data.get("name") or "").strip() or None
-            port = data.get("port") or 25565
-            try:
-                port = int(port)
-            except (TypeError, ValueError):
-                return jsonify({"status": "error", "message": "Некорректный порт"}), 400
 
             if not version:
                 return jsonify({"status": "error", "message": "Не указана версия"}), 400
 
             try:
-                meta = manager.create_vanilla_server(version, name=name, port=port)
+                meta = manager.create_vanilla_server(version, name=name)
             except (OSError, RuntimeError, ValueError) as e:
                 return jsonify({"status": "error", "message": str(e)}), 500
 
             meta["running"] = False
             meta["status"] = "stopped"
             return jsonify({"status": "success", "server": meta})
+
+        @bp.route("/api/servers/<server_id>", methods=["DELETE"])
+        def api_delete(server_id):
+            if not manager.get_server(server_id):
+                return jsonify({"status": "error", "message": "Не найден"}), 404
+            try:
+                manager.delete_server(server_id)
+            except (OSError, RuntimeError) as e:
+                return jsonify({"status": "error", "message": str(e)}), 500
+            return jsonify({"status": "success", "message": "Удалён"})
 
         @bp.route("/api/servers/<server_id>/start", methods=["POST"])
         def api_start(server_id):
