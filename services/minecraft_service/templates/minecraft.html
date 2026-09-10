@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+{% block title %}Minecraft{% endblock %}
+{% block header %}Minecraft{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('minecraft_service.static', filename='style.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="mc-wrap">
+    <button type="button" class="mc-btn primary" id="btn-add">Добавить сервер</button>
+    <div id="message" class="mc-message"></div>
+
+    <div id="servers" class="mc-list"></div>
+</div>
+
+<!-- модалка создания -->
+<div id="modal-create" class="mc-modal hidden">
+    <div class="mc-modal-card">
+        <h3>Новый сервер</h3>
+        <label>Тип</label>
+        <select id="create-type">
+            <option value="vanilla">Дефолтный</option>
+            <option value="modded">Модифицированный</option>
+        </select>
+        <div id="vanilla-fields">
+            <label>Название</label>
+            <input id="create-name" type="text" placeholder="Выживание">
+            <label>Версия</label>
+            <select id="create-version"></select>
+            <label>Порт</label>
+            <input id="create-port" type="number" value="25565">
+        </div>
+        <div id="modded-stub" class="hidden">Пока заглушка. Скоро.</div>
+        <div class="mc-modal-actions">
+            <button type="button" class="mc-btn" id="create-cancel">Отмена</button>
+            <button type="button" class="mc-btn primary" id="create-ok">Создать</button>
+        </div>
+    </div>
+</div>
+
+<!-- модалка настроек -->
+<div id="modal-settings" class="mc-modal hidden">
+    <div class="mc-modal-card">
+        <h3>Настройки</h3>
+        <div id="settings-fields"></div>
+        <div class="mc-modal-actions">
+            <button type="button" class="mc-btn" id="settings-cancel">Закрыть</button>
+            <button type="button" class="mc-btn primary" id="settings-save">Сохранить</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const msg = document.getElementById("message");
+    const list = document.getElementById("servers");
+    let settingsServerId = null;
+
+    function setMsg(t, err = false) {
+        msg.textContent = t || "";
+        msg.classList.toggle("error", !!err);
+    }
+
+    async function api(url, opts) {
+        const res = await fetch(url, {
+            headers: { "Content-Type": "application/json" },
+            ...opts,
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data.status === "error") {
+            throw new Error(data.message || res.statusText || "Ошибка");
+        }
+        return data;
+    }
+
+    function renderServers(items) {
+        if (!items.length) {
+            list.innerHTML = "<p class='mc-empty'>Серверов пока нет</p>";
+            return;
+        }
+        list.innerHTML = items.map(s => `
+    <div class="mc-card" data-id="${s.id}">
+      <div class="mc-card-top">
+        <div>
+          <div class="mc-name">${s.name || s.id}</div>
+          <div class="mc-meta">${s.type} · ${s.version} · :${s.port}</div>
+        </div>
+        <span class="mc-status ${s.running ? 'on' : 'off'}">${s.running ? 'Запущен' : 'Остановлен'}</span>
+      </div>
+      <div class="mc-actions">
+        <button class="mc-btn" data-act="settings">Настройки</button>
+        <button class="mc-btn primary" data-act="${s.running ? 'stop' : 'start'}">
+          ${s.running ? 'Остановить' : 'Запустить'}
+        </button>
+        <button class="mc-btn" data-act="regen" disabled title="Этап 5">Перегенерировать</button>
+        <button class="mc-btn" data-act="console" disabled title="Этап 6">Консоль</button>
+      </div>
+    </div>
+  `).join("");
+    }
+
+    async function refresh() {
+        const data = await api("/minecraft/api/servers");
+        renderServers(data.items || []);
+    }
+
+    document.getElementById("btn-add").onclick = async () => {
+        const modal = document.getElementById("modal-create");
+        modal.classList.remove("hidden");
+        const sel = document.getElementById("create-version");
+        sel.innerHTML = "<option>Загрузка...</option>";
+        try {
+            const data = await api("/minecraft/api/versions");
+            sel.innerHTML = (data.items || []).map(v => `<option value="${v}">${v}</option>`).join("");
+        } catch (e) {
+            sel.innerHTML = "<option value=''>Ошибка загрузки</option>";
+            setMsg(e.message, true);
+        }
+    };
+
+    document.getElementById("create-type").onchange = (e) => {
+        const modded = e.target.value === "modded";
+        document.getElementById("vanilla-fields").classList.toggle("hidden", modded);
+        document.getElementById("modded-stub").classList.toggle("hidden", !modded);
+    };
+
+    document.getElementById("create-cancel").onclick = () => {
+        document.getElementById("modal-create").classList.add("hidden");
+    };
+
+    document.getElementById("create-ok").onclick = async () => {
+        const type = document.getElementById("create-type").value;
+        try {
+            setMsg("Создаю сервер (качаю jar)...");
+            await api("/minecraft/api/servers", {
+                method: "POST",
+                body: JSON.stringify({
+                    type,
+                    version: document.getElementById("create-version").value,
+                    name: document.getElementById("create-name").value,
+                    port: document.getElementById("create-port").value,
+                }),
+            });
+            document.getElementById("modal-create").classList.add("hidden");
+            setMsg("Сервер создан");
+            await refresh();
+        } catch (e) {
+            setMsg(e.message, true);
+        }
+    };
+
+    list.addEventListener("click", async (e) => {
+        const btn = e.target.closest("button[data-act]");
+        if (!btn) return;
+        const card = btn.closest(".mc-card");
+        const id = card.dataset.id;
+        const act = btn.dataset.act;
+        try {
+            if (act === "start") {
+                setMsg("Запуск...");
+                await api(`/minecraft/api/servers/${id}/start`, { method: "POST" });
+                setMsg("Запущен");
+                await refresh();
+            } else if (act === "stop") {
+                setMsg("Остановка...");
+                await api(`/minecraft/api/servers/${id}/stop`, { method: "POST" });
+                setMsg("Остановлен");
+                await refresh();
+            } else if (act === "settings") {
+                settingsServerId = id;
+                const data = await api(`/minecraft/api/servers/${id}/settings`);
+                const box = document.getElementById("settings-fields");
+                const props = data.properties || {};
+                box.innerHTML = (data.schema || []).map(f => {
+                    const val = props[f.key] ?? "";
+                    if (f.type === "bool") {
+                        const on = String(val).toLowerCase() === "true";
+                        return `<label class="mc-field"><span>${f.label}</span>
+            <input type="checkbox" data-key="${f.key}" ${on ? "checked" : ""}></label>`;
+                    }
+                    if (f.type === "select") {
+                        const opts = (f.options || []).map(o =>
+                            `<option value="${o}" ${o === val ? "selected" : ""}>${o}</option>`).join("");
+                        return `<label class="mc-field"><span>${f.label}</span>
+            <select data-key="${f.key}">${opts}</select></label>`;
+                    }
+                    return `<label class="mc-field"><span>${f.label}</span>
+          <input data-key="${f.key}" type="${f.type === "number" ? "number" : "text"}" value="${val}"></label>`;
+                }).join("");
+                document.getElementById("modal-settings").classList.remove("hidden");
+            }
+        } catch (err) {
+            setMsg(err.message, true);
+        }
+    });
+
+    document.getElementById("settings-cancel").onclick = () => {
+        document.getElementById("modal-settings").classList.add("hidden");
+    };
+
+    document.getElementById("settings-save").onclick = async () => {
+        const props = {};
+        document.querySelectorAll("#settings-fields [data-key]").forEach(el => {
+            if (el.type === "checkbox") props[el.dataset.key] = el.checked;
+            else props[el.dataset.key] = el.value;
+        });
+        try {
+            await api(`/minecraft/api/servers/${settingsServerId}/settings`, {
+                method: "POST",
+                body: JSON.stringify({ properties: props }),
+            });
+            document.getElementById("modal-settings").classList.add("hidden");
+            setMsg("Настройки сохранены (нужен рестарт сервера, если был запущен)");
+            await refresh();
+        } catch (e) {
+            setMsg(e.message, true);
+        }
+    };
+
+    refresh().catch(e => setMsg(e.message, true));
+    setInterval(() => refresh().catch(() => { }), 5000);
+</script>
+{% endblock %}
