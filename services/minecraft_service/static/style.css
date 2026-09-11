@@ -23,6 +23,18 @@
     cursor: not-allowed;
 }
 
+.mc-btn {
+    transition: transform 0.12s ease, filter 0.15s ease, opacity 0.15s ease;
+}
+
+.mc-btn:hover:not(:disabled) {
+    filter: brightness(1.08);
+}
+
+.mc-btn:active:not(:disabled) {
+    transform: scale(0.97);
+}
+
 .mc-message {
     margin: 12px 0;
     color: #34D399;
@@ -32,12 +44,19 @@
     color: #f87171;
 }
 
+/* ---- карточки серверов ---- */
 .mc-card {
     background: #1a1a1a;
     border: 1px solid #2a2a2a;
     border-radius: 12px;
     padding: 14px;
     margin-bottom: 12px;
+    transition: border-color 0.2s ease, transform 0.15s ease;
+}
+
+.mc-card:hover {
+    border-color: #3f3f3f;
+    transform: translateY(-1px);
 }
 
 .mc-card-top {
@@ -58,12 +77,14 @@
 
 .mc-status.on {
     color: #34D399;
+    text-shadow: 0 0 12px rgba(52, 211, 153, 0.35);
 }
 
 .mc-status.off {
     color: #737373;
 }
 
+/* ---- модалка: появление ---- */
 .mc-modal {
     position: fixed;
     inset: 0;
@@ -72,10 +93,7 @@
     align-items: center;
     justify-content: center;
     z-index: 50;
-}
-
-.mc-modal.hidden {
-    display: none;
+    animation: mc-fade-in 0.2s ease;
 }
 
 .mc-modal-card {
@@ -86,6 +104,33 @@
     width: min(440px, 92vw);
     max-height: 85vh;
     overflow: auto;
+    animation: mc-slide-up 0.25s ease;
+}
+
+@keyframes mc-fade-in {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes mc-slide-up {
+    from {
+        opacity: 0;
+        transform: translateY(12px) scale(0.98);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.mc-modal.hidden {
+    display: none;
 }
 
 .mc-modal-card label,
@@ -120,6 +165,70 @@
     display: none !important;
 }
 
+/* ---- поля настроек ---- */
 .mc-field {
-    margin-bottom: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 14px;
+    color: #cfcfcf;
+    font-size: 0.9rem;
+}
+
+.mc-field>span {
+    color: #a3a3a3;
+    font-size: 0.85rem;
+}
+
+.mc-field input[type="text"],
+.mc-field input[type="number"],
+.mc-field select {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid #333;
+    background: #121212;
+    color: #eee;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.mc-field input[type="text"]:focus,
+.mc-field input[type="number"]:focus,
+.mc-field select:focus {
+    outline: none;
+    border-color: #34D399;
+    box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.2);
+}
+
+/* bool: название слева, чекбокс справа в одной строке */
+.mc-field:has(input[type="checkbox"]) {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 12px;
+    background: #161616;
+    border: 1px solid #2a2a2a;
+    border-radius: 10px;
+    transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.mc-field:has(input[type="checkbox"]):hover {
+    border-color: #3a3a3a;
+    background: #1a1a1a;
+}
+
+.mc-field:has(input[type="checkbox"])>span {
+    margin: 0;
+    color: #e5e5e5;
+    font-size: 0.92rem;
+}
+
+.mc-field input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    flex-shrink: 0;
+    accent-color: #34D399;
+    cursor: pointer;
 }
