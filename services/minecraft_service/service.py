@@ -1,9 +1,10 @@
+import requests
 from flask import jsonify, render_template, request
 
 from services.base import BaseService
 
 from . import manager
-from .properties_util import FIELD_SCHEMA
+from .properties_util import schema_from_properties
 
 
 class MinecraftService(BaseService):
@@ -33,7 +34,7 @@ class MinecraftService(BaseService):
                 return jsonify(
                     {"status": "success", "items": manager.available_versions()}
                 )
-            except (OSError, RuntimeError, ValueError) as e:
+            except (OSError, RuntimeError, ValueError, requests.RequestException) as e:
                 return jsonify({"status": "error", "message": str(e)}), 500
 
         @bp.route("/api/servers", methods=["POST"])
@@ -47,13 +48,18 @@ class MinecraftService(BaseService):
 
             version = (data.get("version") or "").strip()
             name = (data.get("name") or "").strip() or None
-
             if not version:
                 return jsonify({"status": "error", "message": "Не указана версия"}), 400
 
             try:
+                # долго: download jar + первый старт MC до server.properties + stop
                 meta = manager.create_vanilla_server(version, name=name)
-            except (OSError, RuntimeError, ValueError) as e:
+            except (
+                OSError,
+                RuntimeError,
+                ValueError,
+                requests.RequestException,
+            ) as e:
                 return jsonify({"status": "error", "message": str(e)}), 500
 
             meta["running"] = False
@@ -94,12 +100,17 @@ class MinecraftService(BaseService):
         def api_settings_get(server_id):
             if not manager.get_server(server_id):
                 return jsonify({"status": "error", "message": "Не найден"}), 404
-            props = manager.get_properties(server_id)
+            try:
+                props = manager.get_properties(server_id)
+            except OSError as e:
+                return jsonify({"status": "error", "message": str(e)}), 500
+
             return jsonify(
                 {
                     "status": "success",
                     "properties": props,
-                    "schema": FIELD_SCHEMA,
+                    # форма только из ключей реального server.properties
+                    "schema": schema_from_properties(props),
                 }
             )
 
@@ -107,21 +118,25 @@ class MinecraftService(BaseService):
         def api_settings_set(server_id):
             if not manager.get_server(server_id):
                 return jsonify({"status": "error", "message": "Не найден"}), 404
+
             data = request.get_json(silent=True) or {}
             updates = data.get("properties") or {}
             if not isinstance(updates, dict):
                 return jsonify(
                     {"status": "error", "message": "Некорректные данные"}
                 ), 400
-            # bool → true/false строки для properties
+
             clean = {}
             for k, v in updates.items():
                 if isinstance(v, bool):
                     clean[k] = "true" if v else "false"
                 else:
                     clean[k] = str(v)
+
             try:
+                # set_properties внутри только update существующих ключей
                 props = manager.set_properties(server_id, clean)
-            except (OSError, RuntimeError, ValueError) as e:
+            except (OSError, RuntimeError, ValueError, FileNotFoundError) as e:
                 return jsonify({"status": "error", "message": str(e)}), 500
+
             return jsonify({"status": "success", "properties": props})
