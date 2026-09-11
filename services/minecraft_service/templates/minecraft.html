@@ -228,8 +228,15 @@ list.addEventListener("click", async (e) => {
                 const val = props[f.key] ?? "";
                 if (f.type === "bool") {
                     const on = String(val).toLowerCase() === "true";
-                    return `<label class="mc-field mc-field-bool"><span>${f.label}</span>
-            <input type="checkbox" data-key="${f.key}" ${on ? "checked" : ""}></label>`;
+                    return `
+                      <button type="button"
+                              class="mc-toggle ${on ? "is-on" : "is-off"}"
+                              data-key="${f.key}"
+                              data-bool="1"
+                              aria-pressed="${on}">
+                        <span class="mc-toggle-label">${f.label}</span>
+                        <span class="mc-toggle-state">${on ? "Вкл" : "Выкл"}</span>
+                      </button>`;
                 }
                 if (f.type === "select") {
                     const opts = (f.options || []).map(o =>
@@ -253,16 +260,51 @@ list.addEventListener("click", async (e) => {
     }
 });
 
+document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+
+    const createModal = document.getElementById("modal-create");
+    const settingsModal = document.getElementById("modal-settings");
+
+    if (!settingsModal.classList.contains("hidden")) {
+        settingsModal.classList.add("hidden");
+        return;
+    }
+    if (!createModal.classList.contains("hidden")) {
+        // не закрывать во время прогресса создания
+        const progress = document.getElementById("create-progress-block");
+        if (progress && !progress.classList.contains("hidden")) return;
+        createModal.classList.add("hidden");
+        hideCreateProgress();
+    }
+});
+
 document.getElementById("settings-cancel").onclick = () => {
     document.getElementById("modal-settings").classList.add("hidden");
 };
 
+document.getElementById("settings-fields").addEventListener("click", (e) => {
+    const btn = e.target.closest(".mc-toggle");
+    if (!btn) return;
+    const on = btn.classList.contains("is-on");
+    btn.classList.toggle("is-on", !on);
+    btn.classList.toggle("is-off", on);
+    btn.setAttribute("aria-pressed", String(!on));
+    btn.querySelector(".mc-toggle-state").textContent = !on ? "Вкл" : "Выкл";
+});
+
 document.getElementById("settings-save").onclick = async () => {
     const props = {};
-    document.querySelectorAll("#settings-fields [data-key]").forEach(el => {
-        if (el.type === "checkbox") props[el.dataset.key] = el.checked;
-        else props[el.dataset.key] = el.value;
+    document.querySelectorAll("#settings-fields [data-key]").forEach((el) => {
+        if (el.dataset.bool === "1") {
+            props[el.dataset.key] = el.classList.contains("is-on");
+        } else if (el.type === "checkbox") {
+            props[el.dataset.key] = el.checked;
+        } else {
+            props[el.dataset.key] = el.value;
+        }
     });
+
     try {
         await api(`/minecraft/api/servers/${settingsServerId}/settings`, {
             method: "POST",
