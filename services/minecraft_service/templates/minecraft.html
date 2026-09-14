@@ -268,8 +268,6 @@ list.addEventListener("click", async (e) => {
             await api(`/minecraft/api/servers/${id}`, { method: "DELETE" });
             setMsg("Удалён");
             await refresh();
-        }
-
         } else if (act === "regen") {
         if (!confirm("Удалить мир? После запуска создастся новый.")) return;
         setMsg("Удаляю мир...");
