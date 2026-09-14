@@ -1,6 +1,5 @@
 import requests
 from flask import jsonify, render_template, request
-
 from services.base import BaseService
 
 from . import manager
@@ -140,3 +139,39 @@ class MinecraftService(BaseService):
                 return jsonify({"status": "error", "message": str(e)}), 500
 
             return jsonify({"status": "success", "properties": props})
+
+        @bp.route("/api/servers/<server_id>/regenerate", methods=["POST"])
+        def api_regenerate(server_id):
+            if not manager.get_server(server_id):
+                return jsonify({"status": "error", "message": "Не найден"}), 404
+            try:
+                manager.regenerate_world(server_id)
+            except (OSError, RuntimeError) as e:
+                return jsonify({"status": "error", "message": str(e)}), 500
+            return jsonify(
+                {"status": "success", "message": "Мир удалён. Запустите сервер."}
+            )
+
+        @bp.route("/api/servers/<server_id>/console")
+        def api_console_get(server_id):
+            if not manager.get_server(server_id):
+                return jsonify({"status": "error", "message": "Не найден"}), 404
+            return jsonify(
+                {
+                    "status": "success",
+                    "running": manager.get_server(server_id)["running"],
+                    "log": manager.read_console(server_id),
+                }
+            )
+
+        @bp.route("/api/servers/<server_id>/console", methods=["POST"])
+        def api_console_post(server_id):
+            if not manager.get_server(server_id):
+                return jsonify({"status": "error", "message": "Не найден"}), 404
+            data = request.get_json(silent=True) or {}
+            command = (data.get("command") or "").strip()
+            try:
+                manager.send_command(server_id, command)
+            except (OSError, RuntimeError) as e:
+                return jsonify({"status": "error", "message": str(e)}), 500
+            return jsonify({"status": "success"})

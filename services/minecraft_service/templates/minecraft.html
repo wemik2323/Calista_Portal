@@ -59,6 +59,20 @@
     </div>
 </div>
 
+<div id="modal-console" class="mc-modal hidden">
+  <div class="mc-modal-card mc-console-card">
+    <h3>Консоль</h3>
+    <pre id="console-log" class="mc-console-log"></pre>
+    <form id="console-form" class="mc-console-form">
+      <input id="console-input" type="text" placeholder="say Привет  |  Tab — подсказка" autocomplete="off">
+      <button type="submit" class="mc-btn primary">Отправить</button>
+    </form>
+    <div class="mc-modal-actions">
+      <button type="button" class="mc-btn" id="console-close">Закрыть</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const STEPS = [
     { pct: 10, text: "Подготовка каталога..." },
@@ -124,8 +138,8 @@ function renderServers(items) {
         <button class="mc-btn primary" data-act="${s.running ? 'stop' : 'start'}">
           ${s.running ? 'Остановить' : 'Запустить'}
         </button>
-        <button class="mc-btn" data-act="regen" disabled title="Этап 5">Перегенерировать</button>
-        <button class="mc-btn" data-act="console" disabled title="Этап 6">Консоль</button>
+        <button class="mc-btn" data-act="regen" title="Этап 5">Перегенерировать</button>
+        <button class="mc-btn" data-act="console" title="Этап 6">Консоль</button>
         <button class="mc-btn" data-act="delete">Удалить</button>
       </div>
     </div>
@@ -255,6 +269,16 @@ list.addEventListener("click", async (e) => {
             setMsg("Удалён");
             await refresh();
         }
+
+        } else if (act === "regen") {
+        if (!confirm("Удалить мир? После запуска создастся новый.")) return;
+        setMsg("Удаляю мир...");
+        await api(`/minecraft/api/servers/${id}/regenerate`, { method: "POST" });
+        setMsg("Мир удалён. Запустите сервер.");
+        await refresh();
+    } else if (act === "console") {
+        openConsole(id);
+    }
     } catch (err) {
         setMsg(err.message, true);
     }
@@ -320,5 +344,90 @@ document.getElementById("settings-save").onclick = async () => {
 
 refresh().catch(e => setMsg(e.message, true));
 setInterval(() => refresh().catch(() => {}), 5000);
+
+
+
+
+// CONSOLE STUFF
+let consoleServerId = null;
+let consoleTimer = null;
+
+const MC_COMMANDS = [
+  "help", "list", "say", "op", "deop", "ban", "ban-ip", "pardon", "pardon-ip",
+  "whitelist", "kick", "tp", "gamemode", "give", "time", "weather", "difficulty",
+  "stop", "save-all", "save-on", "save-off", "seed", "xp", "effect", "enchant",
+  "summon", "setblock", "fill", "clone", "title", "clear", "kill", "me", "w",
+  "tellraw", "gamerule", "setworldspawn", "spawnpoint", "weather", "reload",
+];
+
+async function refreshConsoleLog() {
+  if (!consoleServerId) return;
+  try {
+    const data = await api(`/minecraft/api/servers/${consoleServerId}/console`);
+    const el = document.getElementById("console-log");
+    const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 40;
+    el.textContent = data.log || "";
+    if (atBottom) el.scrollTop = el.scrollHeight;
+  } catch (_) {}
+}
+
+function openConsole(id) {
+  consoleServerId = id;
+  document.getElementById("modal-console").classList.remove("hidden");
+  refreshConsoleLog();
+  consoleTimer = setInterval(refreshConsoleLog, 1000);
+  document.getElementById("console-input").focus();
+}
+
+function closeConsole() {
+  document.getElementById("modal-console").classList.add("hidden");
+  consoleServerId = null;
+  if (consoleTimer) clearInterval(consoleTimer);
+  consoleTimer = null;
+}
+
+document.getElementById("console-close").onclick = closeConsole;
+
+document.getElementById("console-form").onsubmit = async (e) => {
+  e.preventDefault();
+  const input = document.getElementById("console-input");
+  const command = input.value.trim();
+  if (!command || !consoleServerId) return;
+  try {
+    await api(`/minecraft/api/servers/${consoleServerId}/console`, {
+      method: "POST",
+      body: JSON.stringify({ command }),
+    });
+    input.value = "";
+    setTimeout(refreshConsoleLog, 300);
+  } catch (err) {
+    setMsg(err.message, true);
+  }
+};
+
+// Tab — простое автодополнение первой команды
+document.getElementById("console-input").addEventListener("keydown", (e) => {
+  if (e.key !== "Tab") return;
+  e.preventDefault();
+  const input = e.target;
+  const parts = input.value.trimStart().split(/\s+/);
+  const head = (parts[0] || "").toLowerCase();
+  if (!head) return;
+  const match = MC_COMMANDS.find((c) => c.startsWith(head));
+  if (match) {
+    parts[0] = match;
+    input.value = parts.join(" ") + (parts.length === 1 ? " " : "");
+  }
+});
+
+// Esc — закрыть консоль тоже
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  const consoleModal = document.getElementById("modal-console");
+  if (consoleModal && !consoleModal.classList.contains("hidden")) {
+    closeConsole();
+  }
+});
+
 </script>
 {% endblock %}

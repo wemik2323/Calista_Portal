@@ -101,32 +101,48 @@ def start_server(server_id: str) -> None:
     if _is_running(server_id):
         return
     path = _server_dir(server_id)
-    jar = path / "server.jar"
-    if not jar.exists():
+    if not (path / "server.jar").exists():
         raise RuntimeError("server.jar не найден")
 
     log = open(path / "console.log", "a", encoding="utf-8")  # noqa: SIM115
-    try:
-        proc = subprocess.Popen(
-            [
-                MC_JAVA,
-                "-Xms512M",
-                f"-Xmx{MC_XMX}",
-                "-jar",
-                "server.jar",
-                "nogui",
-            ],
-            cwd=str(path),
-            stdout=log,
-            stderr=subprocess.STDOUT,
-            stdin=subprocess.DEVNULL,
-            start_new_session=True,
-        )
-    except Exception:
-        log.close()
-        raise
-
+    proc = subprocess.Popen(
+        [
+            MC_JAVA,
+            "-Xms512M",
+            f"-Xmx{MC_XMX}",
+            "-jar",
+            "server.jar",
+            "nogui",
+        ],
+        cwd=str(path),
+        stdout=log,
+        stderr=subprocess.STDOUT,
+        stdin=subprocess.PIPE,
+        text=True,
+        bufsize=1,
+        start_new_session=True,
+    )
     _pid_file(server_id).write_text(str(proc.pid), encoding="utf-8")
+
+
+def send_command(server_id: str, command: str) -> None:
+    if not _is_running(server_id):
+        raise RuntimeError("Сервер не запущен")
+    cmd = command.strip().lstrip("/")
+    if not cmd:
+        return
+    pid = int(_pid_file(server_id).read_text(encoding="utf-8").strip())
+    with open(f"/proc/{pid}/fd/0", "w", encoding="utf-8") as f:
+        f.write(cmd + "\n")
+        f.flush()
+
+
+def read_console(server_id: str, max_lines: int = 300) -> str:
+    log_path = _server_dir(server_id) / "console.log"
+    if not log_path.exists():
+        return ""
+    lines = log_path.read_text(encoding="utf-8", errors="replace").splitlines()
+    return "\n".join(lines[-max_lines:])
 
 
 def stop_server(server_id: str) -> None:
@@ -154,6 +170,38 @@ def stop_server(server_id: str) -> None:
         except OSError:
             pass
     pf.unlink(missing_ok=True)
+
+
+def regenerate_world(server_id: str) -> None:
+    if _is_running(server_id):
+        raise RuntimeError("Сначала остановите сервер")
+
+    path = _server_dir(server_id)
+    props = read_properties(path / "server.properties")
+    level = props.get("level-name", "world").strip() or "world"
+
+    # vanilla: world, world_nether, world_the_end
+    candidates = [
+        path / level,
+        path / f"{level}_nether",
+        path / f"{level}_the_end",
+    ]
+    removed = []
+    for p in candidates:
+        if p.exists() and p.is_dir():
+            shutil.rmtree(p)
+            removed.append(p.name)
+
+    if not removed:
+        # на всякий случай типичные имена
+        for name in ("world", "world_nether", "world_the_end"):
+            p = path / name
+            if p.exists() and p.is_dir():
+                shutil.rmtree(p)
+                removed.append(name)
+
+    if not removed:
+        raise RuntimeError("Папки мира не найдены (уже пусто?)")
 
 
 def create_vanilla_server(version: str, name: str | None = None) -> dict:
